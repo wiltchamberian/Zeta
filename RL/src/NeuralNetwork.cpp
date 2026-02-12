@@ -19,75 +19,72 @@ std::vector<double> NeuralNetwork::dsigma_dz(std::vector<double>& z) {
   return b;
 }
 
-std::vector<std::vector<double>> NeuralNetwork::dC_dw(Sample& a, Sample& delta) {
-  std::vector<std::vector<double>> w(delta.size());
-  for (int i = 0; i < delta.size(); ++i) {
-    w[i].resize(a.size());
-  }
+Tensor NeuralNetwork::dC_dw(Sample& a, const Tensor& delta) {
+  Tensor w( delta.size(), a.size());
   for (int j = 0; j < delta.size(); ++j) {
     for (int k = 0; k < a.size(); ++k) {
-      w[j][k] = a[k] * delta[j];
+      w(j,k) = a[k] * delta(j);
     }
   }
   return w;
 }
 
-std::vector<double> NeuralNetwork::BP1(std::vector<double>& y) {
-  std::vector<double> output(y.size());
+Tensor NeuralNetwork::BP1(std::vector<double>& y) {
+  Tensor output(y.size());
 
   auto d1 = dC_da(a.back(), y);
   auto d2 = dsigma_dz(z.back());
   for (int i = 0; i < d1.size(); ++i) {
-    output[i] = d1[i] * d2[i];
+    output(i) = d1[i] * d2[i];
   }
   return output;
 }
 
-std::vector<double> NeuralNetwork::BP2(std::vector<std::vector<double>>& w, std::vector<double>& delta, std::vector<double>& z) {
-  std::vector<double> output(z.size());
+Tensor NeuralNetwork::BP2(const Tensor& w, const Tensor& delta, std::vector<double>& z) {
+  Tensor output(z.size());
   for (int i = 0; i < output.size(); ++i) {
-    output[i] = 0;
+    output(i) = 0;
     for (int j = 0; j < delta.size(); ++j) {
-      output[i] += delta[j] * w[j][i];
+      output(i) += delta(j) * w(j, i);
     }
   }
   Sample s = dsigma_dz(z);
   for (int i = 0; i < s.size(); ++i) {
-    output[i] = output[i] * s[i];
+    output(i) = output(i) * s[i];
   }
   return output;
 }
 
-std::vector<std::vector<double>> NeuralNetwork::BP4(std::vector<double>& a, std::vector<double>& delta) {
+Tensor NeuralNetwork::BP4(std::vector<double>& a, const Tensor& delta) {
   return dC_dw(a, delta);
 }
 
 std::vector<double> NeuralNetwork::Forward(std::vector<double>& x) {
   a.resize(layers.size());
   for (int i = 0; i < layers.size(); ++i) {
-    a[i].resize(layers[i].data().size(),0);
+    a[i].resize(layers[i].data().shape[0], 0);
   }
   z.resize(layers.size());
   for (int i = 0; i < layers.size(); ++i) {
-    z[i].resize(layers[i].data().size(),0);
+    z[i].resize(layers[i].data().shape[0], 0);
   }
   
   for (int i = 0; i < layers.size(); ++i) {
-    for (int j = 0; j < layers[i].data().size();++j) {
-      auto& v = layers[i].data()[j];
+    for (int j = 0; j < layers[i].data().shape[0];++j) {
+      auto v = layers[i].data()[j];
       z[i][j] = 0.0;
       if (i == 0) {
         for (int k = 0; k < x.size(); ++k) {
-          z[i][j] += v[k] * x[k];
+          z[i][j] += v(k) * x[k];
         }
-        z[i][j] += layers[i].b[j];
+        z[i][j] += layers[i].b(j);
         a[i][j] = activation->activate(z[i][j]);
       }
       else {
         for (int k = 0; k < a[i - 1].size(); ++k) {
-          z[i][j] += v[k] * a[i - 1][k];
+          z[i][j] += v(k) * a[i - 1][k];
         }
-        z[i][j] += layers[i].b[j];
+        z[i][j] += layers[i].b(j);
         a[i][j] = activation->activate(z[i][j]);
       }
     }
@@ -96,13 +93,11 @@ std::vector<double> NeuralNetwork::Forward(std::vector<double>& x) {
 }
 
 void NeuralNetwork::Backward(std::vector<Sample>& xs, std::vector<Sample>& ys) {
+
   std::vector<Layer> nLayers(layers.size());
   for (int i = 0; i < nLayers.size(); ++i) {
-    nLayers[i].weights.resize(layers[i].weights.size());
-    for (int j = 0; j < layers[i].weights.size(); ++j) {
-      nLayers[i].weights[j].resize(layers[i].weights[j].size(),0);
-    }
-    nLayers[i].b.resize(layers[i].b.size(), 0);
+    nLayers[i].weights.zeros(layers[i].weights.shape[0], layers[i].weights.shape[1]);
+    nLayers[i].b.zeros(layers[i].b.shape[0]);
   }
 
   gradLayers = nLayers;
@@ -144,16 +139,16 @@ void NeuralNetwork::Step() {
     }
 }
 
-double NeuralNetwork::MseLoss(std::vector<Sample>& xs, std::vector<Sample>& ys) {
-  double totalLoss = 0.0;
-  for (int i = 0; i < xs.size(); ++i) {
-    std::vector<double>& pred = xs[i];
-    for (int j = 0; j < pred.size(); ++j) {
-      double diff = pred[j] - ys[i][j];
-      totalLoss += diff * diff;
+double NeuralNetwork::MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys) {
+    double totalLoss = 0.0;
+    for (int i = 0; i < xs.size(); ++i) {
+    const std::vector<double>& pred = xs[i];
+        for (int j = 0; j < pred.size(); ++j) {
+            double diff = pred[j] - ys[i][j];
+            totalLoss += diff * diff;
+        }
     }
-  }
-  return totalLoss / xs.size();
+    return totalLoss * 0.5 / xs.size();
 }
 
 void NeuralNetwork::Train(std::vector<Sample>& xs, std::vector<Sample>& ys,
@@ -178,14 +173,14 @@ void NeuralNetwork::PrintGrad() {
     for (int i = 0; i < gradLayers.size(); ++i) {
         std::cout << "gradlayer:" << i << std::endl;
         auto& data = gradLayers[i].data();
-        for (int j = 0; j < data.size(); ++j) {
-            for (int k = 0; k < data[j].size(); ++k) {
-                std::cout << "W_" << k << "," << j << "=" << data[j][k] << " ";
+        for (int j = 0; j < data.shape[0]; ++j) {
+            for (int k = 0; k < data.shape[1]; ++k) {
+                std::cout << "W_" << j << "," << k << "=" << data(j, k) << " ";
             }
             std::cout << std::endl;
         }
-        for (int j = 0; j < gradLayers[i].b.size(); ++j) {
-            std::cout << "B_" << j << "=" << gradLayers[i].b[j] << " ";
+        for (int j = 0; j < gradLayers[i].b.shape[0]; ++j) {
+            std::cout << "B_" << j << "=" << gradLayers[i].b(j) << " ";
         }
         std::cout << std::endl << std::endl;
     }
@@ -195,14 +190,14 @@ void NeuralNetwork::Print() {
   for (int i = 0; i < layers.size(); ++i) {
     std::cout << "layer:" << i << std::endl;
     auto& data = layers[i].data();
-    for (int j = 0; j < data.size(); ++j) {
-      for (int k = 0; k < data[j].size(); ++k) {
-        std::cout << "W_" << k << "," << j << "=" << data[j][k] <<" ";
+    for (int j = 0; j < data.shape[0]; ++j) {
+      for (int k = 0; k < data.shape[1]; ++k) {
+          std::cout << "W_" << j << "," << k << "=" << data(j,k)<< " ";
       }
       std::cout << std::endl;
     }
-    for (int j = 0; j < layers[i].b.size(); ++j) {
-      std::cout << "B_" << j << "=" << layers[i].b[j] << " ";
+    for (int j = 0; j < layers[i].b.shape[0]; ++j) {
+      std::cout << "B_" << j << "=" << layers[i].b(j) << " ";
     }
     std::cout << std::endl << std::endl;
   }

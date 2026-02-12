@@ -1,25 +1,25 @@
 #include "Activation.h"
 
-double LinearActivation::activate(double x) {
+double LinearActivation::activate(const double x) {
   return x;
 }
 
-double LinearActivation::dActivate(double x) {
+double LinearActivation::dActivate(const double x) {
   return 1;
 }
 
-double RELU::activate(double x) {
+double RELU::activate(const double x) {
   return x > 0 ? x : 0.0;
 }
 
-double RELU::dActivate(double x) {
+double RELU::dActivate(const double x) {
   return x > 0 ? 1.0 : 0.0;
 }
 
-double LeakyRELU::activate(double x) {
+double LeakyRELU::activate(const double x) {
   return x > 0 ? x : (a * x);
 }
 
-double LeakyRELU::dActivate(double x) {
+double LeakyRELU::dActivate(const double x) {
   return x > 0 ? 1.0 : a;
 }

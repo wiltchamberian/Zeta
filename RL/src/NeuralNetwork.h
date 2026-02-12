@@ -38,7 +38,7 @@ public:
 
   void Step();
 
-  double MseLoss(std::vector<Sample>& xs, std::vector<Sample>& ys);
+  double MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys);
 
   void Train(std::vector<Sample>& xs, std::vector<Sample>& ys, int maxEpochs, double tolerance);
 
@@ -50,13 +50,14 @@ protected:
 
   std::vector<double> dC_da(std::vector<double>& a, std::vector<double>& y);
   std::vector<double> dsigma_dz(std::vector<double>& z);
-  //std::vector<double> dC_db(std::vector<double>& b);
-  std::vector<std::vector<double>> dC_dw(Sample& a, Sample& delta);
-
-  std::vector<double> BP1(std::vector<double>& input);
-  std::vector<double> BP2(std::vector<std::vector<double>>& w, std::vector<double>& delta, std::vector<double>& z);
-  //std::vector<double> BP3()
-  std::vector<std::vector<double>> BP4(std::vector<double>& a, std::vector<double>& delta);
+  
+  Tensor dC_dw(Sample& a, const Tensor& delta);
+  //d^L= dC/da^{L} * a'(z^L)
+  Tensor BP1(std::vector<double>& input); 
+  //d^l=((w^{l+1}^T d^{l+1}) * a'(z^l)   //* is hadamard product
+  Tensor BP2(const Tensor& w, const Tensor& delta, std::vector<double>& z);
+  //dC/dw^l_{j,k} = d^l_j a^{l-1}_k
+  Tensor BP4(std::vector<double>& a, const Tensor& delta);
 
 
 

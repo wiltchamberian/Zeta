@@ -3,8 +3,12 @@
 #include "device_launch_parameters.h"
 #include "NeuralNetwork.h"
 
+//#include <cudnn.h>
+
 #include <stdio.h>
 #include <memory>
+
+
 
 cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
@@ -14,51 +18,8 @@ __global__ void addKernel(int *c, const int *a, const int *b)
     c[i] = a[i] + b[i];
 }
 
-int main()
+int run()
 {
-    NeuralNetwork network(0.1);
-    std::shared_ptr<Activation> activation = std::make_shared<LinearActivation>();
-    network.SetActivation(activation);
-
-    // 第一层 2 -> 2
-    Layer layer1(2, 2);
-    layer1.weights[0][0] = 0.1;
-    layer1.weights[0][1] = 0.2;
-    layer1.weights[1][0] = 0.3;
-    layer1.weights[1][1] = 0.4;
-    layer1.b[0] = 0.5;
-    layer1.b[1] = 0.6;
-    network.AddLayer(layer1);
-
-    // 第二层 2 -> 1
-    Layer layer2(2, 1);
-    layer2.weights[0][0] = 0.7;
-    layer2.weights[0][1] = 0.8;
-    layer2.b[0] = 0.9;
-    network.AddLayer(layer2);
-
-    network.Print();
-
-    // --- 样本输入，与 PyTorch 一致 ---
-    Sample x = { 1.0, 2.0 };
-    Sample y = { 1.0 };
-
-
-    std::vector<Sample> xs = { x };
-    std::vector<Sample> ys = { y };
-
-    auto y_pred = network.Forward(x);
-    double loss = network.MseLoss(std::vector<Sample>{y_pred}, ys);
-
-    network.Backward(xs, ys);
-
-    network.PrintGrad();
-
-    network.Step();
-    network.Print();
-
-
-    //auto generated
 
     const int arraySize = 5;
     const int a[arraySize] = { 1, 2, 3, 4, 5 };
