@@ -49,7 +49,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;G:\NVIDIA\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
     </ClCompile>
@@ -57,7 +57,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart_static.lib;cudnn.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\NVIDIA\CUDNN\v9.19\lib\13.1\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>G:\NVIDIA\CUDNN\v9.10.2\lib\12.9\x64;G:\NVIDIA\v12.4\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -72,7 +72,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;G:\NVIDIA\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
     </ClCompile>
@@ -82,7 +82,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart_static.lib;cudnn.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\NVIDIA\CUDNN\v9.19\lib\13.1\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>G:\NVIDIA\CUDNN\v9.10.2\lib\12.9\x64;G:\NVIDIA\v12.4\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -93,27 +93,38 @@
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="src\cnn_test.cu" />
+    <CudaCompile Include="src\cuda\cuLayer.cu" />
     <CudaCompile Include="src\cuda\CuNN.cu" />
     <CudaCompile Include="src\cuda\cu_tool.cu" />
+    <CudaCompile Include="src\cuda\kernels.cu" />
     <CudaCompile Include="src\cuda\mat.cu" />
     <CudaCompile Include="src\cuda\tensor_operator.cpp" />
+    <CudaCompile Include="src\fp16_dev.cu" />
     <CudaCompile Include="src\main.cu" />
     <CudaCompile Include="src\test.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Activation.cpp" />
+    <ClCompile Include="src\cuda\cuda_conv_sample.cpp" />
+    <ClCompile Include="src\fp16_emu.cpp" />
     <ClCompile Include="src\Layer.cpp" />
+    <ClCompile Include="src\mcts.cpp" />
     <ClCompile Include="src\NeuralNetwork.cpp" />
     <ClCompile Include="src\tensor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Activation.h" />
     <ClInclude Include="src\cuda\CuActivation.h" />
+    <ClInclude Include="src\cuda\cuda_sample.h" />
+    <ClInclude Include="src\cuda\cuLayer.h" />
     <ClInclude Include="src\cuda\CuNN.h" />
     <ClInclude Include="src\cuda\cu_tool.h" />
+    <ClInclude Include="src\cuda\kernels.h" />
     <ClInclude Include="src\cuda\mat.cuh" />
     <ClInclude Include="src\cuda\tensor_operator.h" />
     <ClInclude Include="src\Layer.h" />
+    <ClInclude Include="src\matrix.h" />
+    <ClInclude Include="src\mcts.h" />
     <ClInclude Include="src\NeuralNetwork.h" />
     <ClInclude Include="src\tensor.h" />
     <ClInclude Include="src\test.h" />

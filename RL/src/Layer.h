@@ -2,87 +2,6 @@
 #include <vector>
 #include "tensor.h"
 
-//using Matrix = std::vector<std::vector<double>>;
-using Vector = std::vector<double>;
-using Tensor = TensorT<double>;
-
-class Matrix {
-public:
-    // 默认构造
-    Matrix()
-        : width(0), height(0) {
-    }
-
-    // 构造指定大小
-    Matrix(int width, int height)
-        : width(width), height(height)
-    {
-        data_.resize(width * height, 0.0);
-    }
-
-    // 拷贝构造
-    Matrix(const Matrix& m)
-        : width(m.width), height(m.height), data_(m.data_) {
-    }
-
-    // 拷贝赋值
-    Matrix& operator= (const Matrix& m) {
-        if (this != &m) {
-            width = m.width;
-            height = m.height;
-            data_ = m.data_;
-        }
-        return *this;
-    }
-
-    // 移动构造
-    Matrix(Matrix&& m) noexcept
-        : width(m.width), height(m.height), data_(std::move(m.data_))
-    {
-        m.width = 0;
-        m.height = 0;
-    }
-
-    // 移动赋值
-    Matrix& operator= (Matrix&& m) noexcept {
-        if (this != &m) {
-            width = m.width;
-            height = m.height;
-            data_ = std::move(m.data_);
-
-            m.width = 0;
-            m.height = 0;
-        }
-        return *this;
-    }
-
-    // 访问
-    void Set(int i, int j, double v) {
-        data_[i * width + j] = v;
-    }
-
-    double* operator[] (int k) {
-        return data_.data() + k * width;
-    }
-
-    void resize(int width, int height, double val = 0.0) {
-        data_.resize(width * height, val);
-        this->width = width;
-        this->height = height;
-    }
-
-    int size() const {
-        return height;
-    }
-
-    const double* data() const {
-        return data_.data();
-    }
-
-    int width;
-    int height;
-    std::vector<double> data_;
-};
 
 class Layer
 {
@@ -104,6 +23,22 @@ public:
 
     b = Tensor(output);
   }
+
+  virtual void forward(dim3 grid, dim3 block, const double* input,      // batch x in_dim
+      const double* weights,    // out_dim x in_dim
+      const double* bias,       // out_dim
+      double* output,           // batch x out_dim
+      int batch, int in_dim, int out_dim) {
+  };
+
+  virtual void backward(dim3 grid, dim3 block, const double* delta_next, // batch x dim_delta_next δ^{l+1}
+      const double* W_next,     // dim_delta_next x  dim_delta W^{l+1}
+      const double* a,          // batch x dim_delta a^l
+      double* delta,            // batch x dim_delta 输出 δ^l
+      int batch,
+      int dim_delta,
+      int dim_delta_next) {
+  };
 
   void ApplyGradient(Layer& other, double learningRate);
 

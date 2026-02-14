@@ -198,6 +198,62 @@ public:
         return *this;
     }
 
+    TensorT(std::initializer_list<double> init)
+    {
+        shape.resize(1);
+        shape[0] = init.size();
+
+        initData();
+    }
+
+    TensorT(std::initializer_list<
+        std::initializer_list<double>> init)
+    {
+        shape.resize(2);
+        shape[0] = init.size();
+        shape[1] = init.begin()->size();
+
+        initData();
+    }
+
+    TensorT(std::initializer_list<
+        std::initializer_list<
+        std::initializer_list<double>>> init)
+    {
+        shape.resize(3);
+        shape[0] = init.size();
+        shape[1] = init.begin()->size();
+        shape[2] = init.begin()->begin()->size();
+
+        initData();
+    }
+
+    TensorT(std::initializer_list<
+        std::initializer_list<
+        std::initializer_list<
+        std::initializer_list<double>>>> init)
+    {
+        shape.resize(4);
+        shape[0] = init.size();
+        shape[1] = init.begin()->size();
+        shape[2] = init.begin()->begin()->size();
+        shape[3] = init.begin()->begin()->begin()->size();
+
+        initData();
+    }
+
+    void setData(std::initializer_list<double> list) {
+        assert(numel() == list.size());
+        assert(is_continuous());
+        std::copy(list.begin(), list.end(), data_->begin());
+    }
+
+    void setData(const std::vector<double>& list) {
+        assert(numel() == list.size());
+        assert(is_continuous());
+        std::copy(list.begin(), list.end(), data_->begin());
+    }
+
     template<typename... Dims>
     void zeros(Dims... dims) {
         shape = Shape{ static_cast<Index>(dims)... };
