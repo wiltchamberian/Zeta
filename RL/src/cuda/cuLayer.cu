@@ -4,7 +4,7 @@
 
 
 /**********************CuLinearLeakyReluLayer*****************************/
-void CuLinearLeakyReluLayer::forward(const double* inputData) { /* kernel launch */
+void CuLinearLeakyReluLayer::forward(const float* inputData) { /* kernel launch */
 
     int out_dim = dl.w_size / dl.in_dim;
     dim3 block(TILE_WIDTH, TILE_WIDTH);
@@ -20,7 +20,7 @@ void CuLinearLeakyReluLayer::forward(const double* inputData) { /* kernel launch
         );
 }
 
-void CuLinearLeakyReluLayer::backward(const double* delta_next, const double* w_next) {
+void CuLinearLeakyReluLayer::backward(const float* delta_next, const float* w_next) {
     int dim_delta = dl.in_dim;
     int dim_delta_next = dl.b_size;
     dim3 block(TILE_WIDTH, TILE_WIDTH);
@@ -37,7 +37,7 @@ void CuLinearLeakyReluLayer::backward(const double* delta_next, const double* w_
         );
 }
 
-void CuLinearLeakyReluLayer::wgrad(const double* prev_activation) {
+void CuLinearLeakyReluLayer::wgrad(const float* prev_activation) {
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     int N = inputShape.N;
     int dim_delta_prev = inputShape.Dim();
@@ -78,13 +78,13 @@ TensorShape CuLinearLeakyReluLayer::InferOutputShape(TensorShape shape) {
 }
 
 size_t CuLinearLeakyReluLayer::GetWorkspaceSize() {
-    return outputShape.NumElements() * 2 * sizeof(double);
+    return outputShape.NumElements() * 2 * sizeof(float);
 }
 
 void CuLinearLeakyReluLayer::BindWorkspace(void* ptr) {
-    double* d = reinterpret_cast<double*>(ptr);
+    float* d = reinterpret_cast<float*>(ptr);
     dl.activation = d;
-    dl.delta = d + outputShape.NumElements() * sizeof(double);
+    dl.delta = d + outputShape.NumElements() * sizeof(float);
 }
 
 /******************************convolution layer*********************************/
@@ -107,22 +107,22 @@ TensorShape CuConvolutionLayer::InferOutputShape(TensorShape shape) {
 
 size_t CuConvolutionLayer::GetWorkspaceSize() {
     size_t siz = 0;
-    siz += outputShape.NumElements() * sizeof(double) * 2;
+    siz += outputShape.NumElements() * sizeof(float) * 2;
     return siz;
 }
 
 void CuConvolutionLayer::BindWorkspace(void* ptr) {
-    double* data = reinterpret_cast<double*>(ptr);
+    float* data = reinterpret_cast<float*>(ptr);
     dl.activation = data;
-    dl.delta = data + outputShape.NumElements() * sizeof(double);
+    dl.delta = data + outputShape.NumElements() * sizeof(float);
 }
 
-void CuConvolutionLayer::forward(const double* input) {
+void CuConvolutionLayer::forward(const float* input) {
     /*
-    const double* input,      // N * C * H * W -> (CRS) * NPQ
-    const double* weights,    // K * (CRS)
-    const double* bias,       // K
-    double* output,           // N * K * P * Q
+    const float* input,      // N * C * H * W -> (CRS) * NPQ
+    const float* weights,    // K * (CRS)
+    const float* bias,       // K
+    float* output,           // N * K * P * Q
     int batch, int C, int H, int W, int R, int S,
     int strideH, int strideW, int K, int P, int Q, float alpha
     */
@@ -141,27 +141,29 @@ void CuConvolutionLayer::forward(const double* input) {
         dl.bias, 
         dl.activation, 
         inputShape.N, inputShape.C, inputShape.H, inputShape.W, R, S,
-        strideH, strideW, K, outputShape.H, outputShape.W, alpha);
+        strideH, strideW, padH, padW,  K, outputShape.H, outputShape.W, alpha);
 }
 
-void CuConvolutionLayer::backward(const double* delta_next, const double* w_next) {
+void CuConvolutionLayer::backward(const float* delta_next, const float* w_next) {
     /*
-    const double* delta_next, // NKHW ->  KRS * NHW ¦Ä^{l+1} 
-    const double* W_next,     // KCRS  -> C*KRS W^{l+1}
-    const double* a,          // NCHW -> C*NHW
-    double* delta,            // NCHW -> C*NHW   output: ¦Ä^l
+    const float* delta_next, // NKPQ ->  KRS * NHW ¦Ä^{l+1}
+    const float* W_next,     // KCRS  -> C*KRS W^R^{l+1}
+    const float* a,          // NCHW -> C*NHW
+    float* delta,            // NCHW -> C*NHW   output: ¦Ä^l
     int N,
     int C,
-    int H, int W, int R, int S, int strideH, int strideW, int K, int alpha*/
+    int H, int W, int P, int Q, int R, int S, int strideH, int strideW, int K, int alpha*/
     assert(next != nullptr);
     int N = next->outputShape.N;
     int K = next->outputShape.C;
-    int H = next->outputShape.H;
-    int W = next->outputShape.W;
+    int P = next->outputShape.H;
+    int Q = next->outputShape.W;
 
-    int C = next->weights.shape[0];
+    int C = next->weights.shape[1];
     int R = next->weights.shape[2];
     int S = next->weights.shape[3];
+    int H = outputShape.H;
+    int W = outputShape.W;
     int NHW = N * H * W;
 
     dim3 block(TILE_WIDTH, TILE_WIDTH);
@@ -172,23 +174,25 @@ void CuConvolutionLayer::backward(const double* delta_next, const double* w_next
         dl.delta,
         N,
         C,
-        H, W, R, S, strideH, strideW, K, alpha);
+        H, W, P, Q, R, S, strideH, strideW, padH, padW, K, alpha);
 }
 
-void CuConvolutionLayer::wgrad(const double* prev_activation) {
-    //conv_wgrad_kernel(
-    //    const double* delta, //NKPQ -> K * NPQ
-    //    const double* a_prev, //NCRS -> NPQ * CRS
-    //    double* grad_w, //KCRS -> K * CRS
-    //    int N, int K, int C, int P, int Q, int R, int S
-    //)
+void CuConvolutionLayer::wgrad(const float* prev_activation) {
+    /*
+    const float* delta, //NKPQ -> K * NPQ
+    const float* a_prev, //NCHW -> NPQ * CRS
+    float* grad_w, //KCRS -> K * CRS
+    int N, int K, int C, int H, int W, int P, int Q, int R, int S, int strideH, int strideW, int padH, int padW
+    */
     int N = inputShape.N;
     int K = outputShape.C;
     int P = outputShape.H;
     int Q = outputShape.W;
     int C = inputShape.C;
-    int R = weights.shape[1];
-    int S = weights.shape[2];
+    int H = inputShape.H;
+    int W = inputShape.W;
+    int R = weights.shape[2];
+    int S = weights.shape[3];
     int CRS = C * R * S;
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((K + TILE_WIDTH - 1) / TILE_WIDTH, (CRS + TILE_WIDTH - 1) / TILE_WIDTH);
@@ -196,21 +200,22 @@ void CuConvolutionLayer::wgrad(const double* prev_activation) {
         dl.delta, //NKPQ -> K * NPQ
         prev_activation, //NCRS -> NPQ * CRS
         dl.grad_w, //KCRS -> K * CRS
-        N, K, C, P, Q, R, S
+        N, K, C, H, W, P, Q, R, S, strideH, strideW, padH, padW
         );
 }
 
 void CuConvolutionLayer::bgrad() {
     /*
     conv_bgrad_kernel(       //NHW * 1 I
-    const double* delta,    //NCHW -> C * NHW 
-    double* grad_b,         //C
+    const float* delta,    //NCHW -> C * NHW 
+    float* grad_b,         //C
     int N, int C, int H, int W
     ) */
     int N = inputShape.N;
     int C = outputShape.C;
     int H = outputShape.H;
     int W = outputShape.W;
+
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((C + TILE_WIDTH - 1) / TILE_WIDTH, 1);
     conv_bgrad_kernel<<<grid, block>>>(
@@ -218,5 +223,13 @@ void CuConvolutionLayer::bgrad() {
         dl.grad_b,         //C
         N, C, H, W
     );
+
+    //dim3 block(TILE_WIDTH);
+    //dim3 grid((C + TILE_WIDTH - 1) / TILE_WIDTH);
+    //conv_bgrad_test << <grid, block >> > (
+    //    dl.delta,
+    //    dl.grad_b,
+    //    N, C, H, W
+    //    );
 }
 

@@ -7,7 +7,7 @@
 #include <cuda_runtime.h>
 
 void test_tensor_slice_permute() {
-    using T = double;
+    using T = float;
 
     // -----------------------------
     // 基础张量初始化
@@ -223,7 +223,7 @@ void test_tensor_slice_permute() {
     std::vector<Sample> ys = { y };
 
     auto y_pred = network.Forward(x);
-    double loss = network.MseLoss(std::vector<Sample>{y_pred}, ys);
+    float loss = network.MseLoss(std::vector<Sample>{y_pred}, ys);
 
     network.Backward(xs, ys);
 
@@ -246,11 +246,11 @@ void test_mat_mul() {
     a1(1, 1) = 4;
     a2 = a1;
     Tensor c(2, 2);
-    double* addr1;
+    float* addr1;
     int l1 = ToDevice(a1, (void**) &addr1);
-    double* addr2;
+    float* addr2;
     int l2 = ToDevice(a2, (void**)&addr2);
-    double* addr3;
+    float* addr3;
     int l3 = ToDevice(c, (void**)&addr3);
     dim3 grid(1, 1);
     dim3 block(TILE_DIM, TILE_DIM);

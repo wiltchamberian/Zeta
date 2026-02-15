@@ -3,8 +3,7 @@
 #include "cuLayer.h"
 #include <memory>
 
-void test_cnn() {
-
+void test_cnn_linear() {
     CuNN network;
     network.SetLearningRate(0.1);
 
@@ -39,44 +38,50 @@ void test_cnn() {
     sp.C = 2;
     network.Build(sp);
 
-    network.Backward(xs, ys);
+    network.Backward(ys);
     network.Step();
 
     network.FetchResultToCpu();
 
     network.Print();
 
+    
+}
+
+void test_cnn_conv() {
+
     /********************convolution********************/
+    CuNN network;
+    network.SetLearningRate(0.1);
     network.Clear();
     std::cout << "start test convolution\n";
-    
-    std::unique_ptr<CuConvolutionLayer> c1 = std::make_unique<CuConvolutionLayer>(2,2, 2, 2);
+
+    std::unique_ptr<CuConvolutionLayer> c1 = std::make_unique<CuConvolutionLayer>(2, 2, 2, 2);
     // out 0
-    c1->weights = { 
-        { 
-            { {1,0},{0,1} },
-            { {0,1},{1,0} }    
-        },
-        { 
-            {{1,1},{1,1}},
-            {{1,-1},{-1,1}}   
-        } 
-    };
+    c1->weights.setData({ 1,0,0,1, 0,1,1,0,1,1,1,1,1,-1,-1,1 });
     network.AddLayer(std::move(c1));
 
     Tensor convX(1, 2, 4, 4);
     int t = 0;
-    std::vector<double> d;
+    std::vector<float> d;
     for (int i = 0; i < 32; ++i) {
         d.push_back(i);
     }
     convX.setData(d);
     TensorShape shape(1, 2, 4, 4);
-    Tensor convY(1,2,3,3);
+    Tensor convY(1, 2, 3, 3);
 
     network.Build(shape);
 
-    network.Backward(convX, convY);
+    Tensor predY = network.ForwardAndFetchPredY(convX);
+    std::cout << "predY:\n";
+    predY.print("y");
+    network.Backward(convY);
+
+    network.FetchGrad();
+    network.PrintGrad();
+
+    network.Step();
 
     network.FetchResultToCpu();
 

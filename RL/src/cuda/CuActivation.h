@@ -4,33 +4,33 @@
 
 // ===== Linear =====
 __host__ __device__ __forceinline__
-double Linear(double x) {
+float Linear(float x) {
     return x;
 }
 
 __host__ __device__ __forceinline__
-double DLinear(double /*x*/) {
+float DLinear(float /*x*/) {
     return 1.0;
 }
 
 // ===== ReLU =====
 __host__ __device__ __forceinline__
-double RELU(double x) {
+float RELU(float x) {
     return x > 0.0 ? x : 0.0;
 }
 
 __host__ __device__ __forceinline__
-double DRELU(double x) {
+float DRELU(float x) {
     return x > 0.0 ? 1.0 : 0.0;
 }
 
 // ===== Leaky ReLU =====
 __host__ __device__ __forceinline__
-double LeakyRELU(double x, double a) {
+float LeakyRELU(float x, float a) {
     return x > 0.0 ? x : a * x;
 }
 
 __host__ __device__ __forceinline__
-double DLeakyRELU(double x, double a) {
+float DLeakyRELU(float x, float a) {
     return x > 0.0 ? 1.0 : a;
 }

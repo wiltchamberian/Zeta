@@ -137,7 +137,7 @@ struct Slice {
 // ============================
 // Tensor 类
 // ============================
-template<typename T = double>
+template<typename T = float>
 class TensorT {
 public:
     static const int end = 0;
@@ -198,57 +198,13 @@ public:
         return *this;
     }
 
-    TensorT(std::initializer_list<double> init)
-    {
-        shape.resize(1);
-        shape[0] = init.size();
-
-        initData();
-    }
-
-    TensorT(std::initializer_list<
-        std::initializer_list<double>> init)
-    {
-        shape.resize(2);
-        shape[0] = init.size();
-        shape[1] = init.begin()->size();
-
-        initData();
-    }
-
-    TensorT(std::initializer_list<
-        std::initializer_list<
-        std::initializer_list<double>>> init)
-    {
-        shape.resize(3);
-        shape[0] = init.size();
-        shape[1] = init.begin()->size();
-        shape[2] = init.begin()->begin()->size();
-
-        initData();
-    }
-
-    TensorT(std::initializer_list<
-        std::initializer_list<
-        std::initializer_list<
-        std::initializer_list<double>>>> init)
-    {
-        shape.resize(4);
-        shape[0] = init.size();
-        shape[1] = init.begin()->size();
-        shape[2] = init.begin()->begin()->size();
-        shape[3] = init.begin()->begin()->begin()->size();
-
-        initData();
-    }
-
-    void setData(std::initializer_list<double> list) {
+    void setData(std::initializer_list<float> list) {
         assert(numel() == list.size());
         assert(is_continuous());
         std::copy(list.begin(), list.end(), data_->begin());
     }
 
-    void setData(const std::vector<double>& list) {
+    void setData(const std::vector<float>& list) {
         assert(numel() == list.size());
         assert(is_continuous());
         std::copy(list.begin(), list.end(), data_->begin());
@@ -774,8 +730,30 @@ public:
         return this->matmul(other);
     }
 
-    void print() const{
+    void print(std::string prefix) const {
+        size_t R = rank();
+        size_t total = numel();
+        std::vector<Index> idx(R, 0); // 多维索引
 
+        for (size_t count = 0; count < total; ++count) {
+            // 计算 flat offset
+            Index pos_this = offset;
+            std::cout << prefix;
+            for (size_t i = 0; i < R; ++i) {
+                pos_this += idx[i] * stride[i];
+                std::cout << idx[i] << ((i == R - 1) ? "":",");
+            }
+            std::cout << "=" << (*data_)[pos_this] <<" ";
+
+            // 多维索引进位
+            for (int d = R - 1; d >= 0; --d) {
+                idx[d]++;
+                if (idx[d] < shape[d]) break;
+                idx[d] = 0;
+            }
+        }
+        std::cout << std::endl;
+      
     }
 
     Shape shape;
@@ -838,4 +816,4 @@ private:
 
 };
 
-using Tensor = TensorT<double>;
+using Tensor = TensorT<float>;

@@ -5,14 +5,14 @@
 int ToDevice(const Tensor& tensor, void** addr) {
 
     Tensor w = tensor.contiguous();
-    int l = w.numel() * sizeof(double);
+    int l = w.numel() * sizeof(float);
     CUDA_CHECK(cudaMalloc(addr, l));
     CUDA_CHECK(cudaMemcpy(*addr, w.data(), l, cudaMemcpyKind::cudaMemcpyHostToDevice));
     return l;
 }
 
 void ToTensor(Tensor& tensor, void* addr) {
-    CUDA_CHECK(cudaMemcpy(tensor.data(), addr, tensor.numel()*sizeof(double), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(tensor.data(), addr, tensor.numel()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
 void FreeDevice(void* addr) {

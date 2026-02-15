@@ -49,8 +49,15 @@ void CuNN::AllocDeviceMemory() {
         total += b;  // grad_b
     }
 
+    if (deviceMemory != nullptr) {
+        CUDA_CHECK(cudaFree(deviceMemory));
+        deviceMemorySize = 0;
+    }
+
     // 2️⃣ 一次性分配
-    CUDA_CHECK(cudaMalloc(&deviceMemory, total * sizeof(double)));
+    deviceMemorySize = total * sizeof(float);
+    CUDA_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
+    CUDA_CHECK(cudaMemset(deviceMemory, 0, deviceMemorySize));
 
     char* addr = static_cast<char*>(deviceMemory);
 
@@ -61,42 +68,39 @@ void CuNN::AllocDeviceMemory() {
         // -------- weights --------
         Tensor w = layer->weights.contiguous();
         size_t w_size = w.numel();
-        layer->dl.weights = reinterpret_cast<double*>(addr);
+        layer->dl.weights = reinterpret_cast<float*>(addr);
         layer->dl.w_size = w_size;
-        layer->dl.in_dim = layer->weights.shape[1];
+        layer->dl.in_dim = w_size / w.shape[0];//layer->weights.shape[1];
 
         CUDA_CHECK(cudaMemcpy(
             layer->dl.weights,
             w.data(),
-            w_size * sizeof(double),
+            w_size * sizeof(float),
             cudaMemcpyHostToDevice
         ));
-        addr += w_size * sizeof(double);
+        addr += w_size * sizeof(float);
 
         // -------- bias --------
         Tensor b = layer->b.contiguous();
         size_t b_size = b.numel();
-        layer->dl.bias = reinterpret_cast<double*>(addr);
+        layer->dl.bias = reinterpret_cast<float*>(addr);
         layer->dl.b_size = b_size;
 
         CUDA_CHECK(cudaMemcpy(
             layer->dl.bias,
             b.data(),
-            b_size * sizeof(double),
+            b_size * sizeof(float),
             cudaMemcpyHostToDevice
         ));
-        addr += b_size * sizeof(double);
+        addr += b_size * sizeof(float);
 
         // -------- grad_w --------
-        layer->dl.grad_w = reinterpret_cast<double*>(addr);
-        CUDA_CHECK(cudaMemset(layer->dl.grad_w, 0, w_size * sizeof(double)));
-        addr += w_size * sizeof(double);
+        layer->dl.grad_w = reinterpret_cast<float*>(addr);
+        addr += w_size * sizeof(float);
 
-      
         // -------- grad_b --------
-        layer->dl.grad_b = reinterpret_cast<double*>(addr);
-        CUDA_CHECK(cudaMemset(layer->dl.grad_b, 0, b_size * sizeof(double)));
-        addr += b_size * sizeof(double);
+        layer->dl.grad_b = reinterpret_cast<float*>(addr);
+        addr += b_size * sizeof(float);
     }
 }
 
@@ -112,7 +116,7 @@ void CuNN::AllocWorkSpaceIfNeeded() {
 
     // 输入 x
     int in_dim = layers[0]->inputShape.Dim();
-    total += layers[0]->inputShape.NumElements() * sizeof(double);
+    total += layers[0]->inputShape.NumElements() * sizeof(float);
 
     // Forward activations 和 Backward deltas
     for (auto& l : layers) {
@@ -121,9 +125,9 @@ void CuNN::AllocWorkSpaceIfNeeded() {
 
     // 输出层 label 和 loss
     int out_dim = layers.back()->outputShape.Dim();
-    total += batchSize * out_dim * sizeof(double); // 标签 y
-    total += batchSize * sizeof(double);           // 每个样本 loss
-    total += sizeof(double);                   // 总 loss
+    total += batchSize * out_dim * sizeof(float); // 标签 y
+    total += batchSize * sizeof(float);           // 每个样本 loss
+    total += sizeof(float);                   // 总 loss
 
     size_t bytes = total;
 
@@ -143,8 +147,8 @@ void CuNN::AllocWorkSpaceIfNeeded() {
     char* addr = static_cast<char*>(deviceWorkspace);
 
     // 输入 x
-    ws.x = reinterpret_cast<double*>(addr);
-    addr += batchSize * in_dim * sizeof(double);
+    ws.x = reinterpret_cast<float*>(addr);
+    addr += batchSize * in_dim * sizeof(float);
 
     
     for (auto& l : layers) {
@@ -153,27 +157,30 @@ void CuNN::AllocWorkSpaceIfNeeded() {
     }
 
     // 标签 y
-    ws.y = reinterpret_cast<double*>(addr);
-    addr += batchSize * out_dim * sizeof(double);
+    ws.y = reinterpret_cast<float*>(addr);
+    addr += batchSize * out_dim * sizeof(float);
 
     // 每个样本 loss
-    ws.loss_vec = reinterpret_cast<double*>(addr);
-    addr += batchSize * sizeof(double);
+    ws.loss_vec = reinterpret_cast<float*>(addr);
+    addr += batchSize * sizeof(float);
 
     // 总 loss
-    ws.loss = reinterpret_cast<double*>(addr);
+    ws.loss = reinterpret_cast<float*>(addr);
 }
 
 
 void CuNN::Forward(const Tensor& x) {
+    //record shape of x, check legal
+    input = x;
+
     AllocWorkSpaceIfNeeded();
 
     // 1️⃣ 拷贝输入 x 到 workspace
-    CUDA_CHECK(cudaMemcpy(ws.x, x.data(), x.numel() * sizeof(double), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(ws.x, x.data(), x.numel() * sizeof(float), cudaMemcpyHostToDevice));
 
     // 2️⃣ 遍历每层
     for (int l = 0; l < layers.size(); ++l) {
-        double* input_ptr = (l == 0) ? ws.x : layers[l - 1]->dl.activation;  //ws.activations[l - 1];
+        float* input_ptr = (l == 0) ? ws.x : layers[l - 1]->dl.activation;  //ws.activations[l - 1];
         //A = sigma(X * W^T)
         layers[l]->forward(input_ptr);
     }
@@ -181,35 +188,40 @@ void CuNN::Forward(const Tensor& x) {
     
 }
 
-Tensor CuNN::ForwardAndFetch(const Tensor& x) {
+Tensor CuNN::ForwardAndFetchPredY(const Tensor& x) {
     Forward(x);
     // 3️⃣ 返回最后一层 activations (host 端 Tensor)
-    Tensor output(layers.back()->b.numel(), GetBatchSize());
-    CUDA_CHECK(cudaMemcpy((void*)output.data(), layers.back()->dl.activation, output.numel() * sizeof(double), cudaMemcpyDeviceToHost));
+    TensorShape sp = layers.back()->outputShape;
+    Shape shape({sp.N, sp.C, sp.H, sp.W});
+
+    Tensor output(shape);
+    CUDA_CHECK(cudaMemcpy((void*)output.data(), layers.back()->dl.activation, output.numel() * sizeof(float), cudaMemcpyDeviceToHost));
 
     return output;
 
 }
 
 
-void CuNN::Backward(Tensor& xs, Tensor& ys) {
+void CuNN::Backward(const Tensor& ys) {
+    label = ys;
+
     // 1️⃣ 确保 workspace 足够大
     AllocWorkSpaceIfNeeded();
 
     // 2️⃣ 拷贝标签 ys 到 GPU, xs will be copied in Forward
-    CUDA_CHECK(cudaMemcpy(ws.y, ys.data(), ys.numel() * sizeof(double), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(ws.y, ys.data(), ys.numel() * sizeof(float), cudaMemcpyHostToDevice));
 
     // 3️⃣ Forward pass: batch 全部激活
-    Forward(xs); // ws.activations 会被填充
+    //Forward(xs); // ws.activations 会被填充
 
     // 4️⃣ Backward pass
     // 最后一层 delta
     int L = layers.size() - 1;
-    int out_dim = layers[L]->b.size();
+    int out_dim = ys.numel()/ys.shape[0];
     int batch = GetBatchSize();
 
     dim3 block(TILE_WIDTH, TILE_WIDTH);
-    dim3 grid((batch + block.x - 1) / block.x, (out_dim + block.y - 1) / block.y);
+    dim3 grid((out_dim + block.x - 1) / block.x, (batch + block.y - 1) / block.y);
 
     //(BP1) δ^L = (a^L - y) ⊙ σ'(z^L)
     mse_loss_kernel << <grid, block >> > (
@@ -217,10 +229,9 @@ void CuNN::Backward(Tensor& xs, Tensor& ys) {
         ws.y,              // y
         layers[L]->dl.delta,      // δ^L 输出
         batch,
-        out_dim
+        out_dim,
+        layers[L]->alpha
         );
-
-    //CUDA_CHECK(cudaDeviceSynchronize());
 
     //(BP2) δ^l = (δ^{l+1} · W^{l+1}) ⊙ σ'(z^l)
     for (int l = L - 1; l >= 0; --l) {
@@ -229,12 +240,8 @@ void CuNN::Backward(Tensor& xs, Tensor& ys) {
 
     //Compute grad_w and grad_b for each layer
     for (int l = 0; l < layers.size(); ++l) {
-        int dim_delta_prev = (l == 0) ? xs.shape[1] : layers[l - 1]->b.size();
-        int dim_delta = layers[l]->b.size();
-
         //BP4
         layers[l]->wgrad((l == 0 ? ws.x : layers[l - 1]->dl.activation/*ws.activations[l - 1]*/));
-
         //BP3
         layers[l]->bgrad();
 
@@ -244,42 +251,56 @@ void CuNN::Backward(Tensor& xs, Tensor& ys) {
 
 void CuNN::Step() {
     for (auto& layer : layers) {
-        int block_y = (layer->dl.b_size + TILE_WIDTH - 1) / TILE_WIDTH;
-        int block_x = (layer->dl.in_dim + TILE_WIDTH - 1) / TILE_WIDTH;
+        int CPQ = layer->weights.numel() / layer->weights.shape[0];
+        int K = layer->weights.shape[0];
+        int block_y = (K + TILE_WIDTH - 1) / TILE_WIDTH;
+        int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
         dim3 grid(block_x, block_y);
         dim3 block(TILE_WIDTH, TILE_WIDTH);
-        apply_gradien_kernel <<<grid, block>>>(layer->dl.grad_w, layer->dl.grad_b, layer->dl.weights, layer->dl.bias, layer->dl.b_size, layer->dl.in_dim, learningRate);
+        apply_gradien_kernel <<<grid, block>>>(layer->dl.grad_w, layer->dl.grad_b, layer->dl.weights, layer->dl.bias, K, CPQ, learningRate);
     }
 }
+
+void CuNN::FetchGrad() {
+    for (int i = 0; i < layers.size(); ++i) {
+        layers[i]->weights_grad.zeros(layers[i]->dl.b_size, layers[i]->dl.in_dim);
+        layers[i]->bias_grad.zeros(layers[i]->dl.b_size);
+        CUDA_CHECK(cudaMemcpy(layers[i]->weights_grad.data(), layers[i]->dl.grad_w, layers[i]->dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(layers[i]->bias_grad.data(), layers[i]->dl.grad_b, layers[i]->dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    }
+
+}
+
 
 void CuNN::FetchResultToCpu() {
     for (int i = 0; i < layers.size(); ++i) {
         layers[i]->weights.zeros(layers[i]->dl.b_size, layers[i]->dl.in_dim);
         layers[i]->b.zeros(layers[i]->dl.b_size);
-        CUDA_CHECK(cudaMemcpy(layers[i]->weights.data(), layers[i]->dl.weights, layers[i]->dl.w_size * sizeof(double), cudaMemcpyKind::cudaMemcpyDeviceToHost));
-        CUDA_CHECK(cudaMemcpy(layers[i]->b.data(), layers[i]->dl.bias, layers[i]->dl.b_size * sizeof(double), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(layers[i]->weights.data(), layers[i]->dl.weights, layers[i]->dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(layers[i]->b.data(), layers[i]->dl.bias, layers[i]->dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     }
 }
 
-double CuNN::MseLoss(Tensor& xs, Tensor& ys) {
-    double totalLoss = 0.0;
+float CuNN::MseLoss(Tensor& xs, Tensor& ys) {
+    float totalLoss = 0.0;
     for (int i = 0; i < xs.size(); ++i) {
         Tensor pred = xs[i];
         for (int j = 0; j < pred.size(); ++j) {
-            double diff = pred(j) - ys(i,j);
+            float diff = pred(j) - ys(i,j);
             totalLoss += diff * diff;
         }
     }
     return totalLoss / xs.shape[0];
 }
 
-void CuNN::Train(Tensor& xs, Tensor& ys, int maxEpochs, double tolerance) {
+void CuNN::Train(Tensor& xs, Tensor& ys, int maxEpochs, float tolerance) {
     for (int epoch = 0; epoch < maxEpochs; ++epoch) {
 
-        double loss = MseLoss(xs, ys);
+        float loss = MseLoss(xs, ys);
         std::cout << "Epoch " << epoch << " Loss: " << loss << std::endl;
 
-        Backward(xs, ys);
+        Forward(xs);
+        Backward(ys);
 
 
         if (loss < tolerance) {
@@ -310,15 +331,19 @@ void CuNN::Print() {
     for (int i = 0; i < layers.size(); ++i) {
         std::cout << "layer:" << i << std::endl;
         auto& data = layers[i]->data();
-        for (int j = 0; j < data.shape[0]; ++j) {
-            for (int k = 0; k < data.shape[1]; ++k) {
-                std::cout << "W_" << k << "," << j << "=" << data(j,k) << " ";
-            }
-            std::cout << std::endl;
-        }
-        for (int j = 0; j < layers[i]->b.numel(); ++j) {
-            std::cout << "B_" << j << "=" << layers[i]->b(j) << " ";
-        }
+        std::cout << "weights:\n";
+        data.print("W_");
+        std::cout << "biases:\n";
+        layers[i]->b.print("B_");
         std::cout << std::endl << std::endl;
+    }
+}
+
+void CuNN::PrintGrad() {
+    for (int i = 0; i < layers.size(); ++i) {
+        std::cout << "weights_grad:\n";
+        layers[i]->weights_grad.print("W_");
+        std::cout << "bias_grad:\n";
+        layers[i]->bias_grad.print("B_");
     }
 }

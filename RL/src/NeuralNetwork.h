@@ -3,7 +3,7 @@
 #include "Activation.h"
 #include <memory>
 
-using Sample = std::vector<double>;
+using Sample = std::vector<float>;
 
 /*
 Formula of BP
@@ -15,12 +15,12 @@ delta = (dC/da) h \sigma'
 class NeuralNetwork
 {
 public:
-  NeuralNetwork(double lr = 1.0)
+  NeuralNetwork(float lr = 1.0)
     :learningRate(lr){
     activation = std::make_shared<RELU>();
   }
 
-  void SetLearningRate(double lr) {
+  void SetLearningRate(float lr) {
     learningRate = lr;
   }
 
@@ -32,15 +32,15 @@ public:
     activation = active;
   }
 
-  std::vector<double> Forward(std::vector<double>& x);
+  std::vector<float> Forward(std::vector<float>& x);
 
   void Backward(std::vector<Sample>& x, std::vector<Sample>& y);
 
   void Step();
 
-  double MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys);
+  float MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys);
 
-  void Train(std::vector<Sample>& xs, std::vector<Sample>& ys, int maxEpochs, double tolerance);
+  void Train(std::vector<Sample>& xs, std::vector<Sample>& ys, int maxEpochs, float tolerance);
 
   void Print();
 
@@ -48,16 +48,16 @@ public:
 
 protected:
 
-  std::vector<double> dC_da(std::vector<double>& a, std::vector<double>& y);
-  std::vector<double> dsigma_dz(std::vector<double>& z);
+  std::vector<float> dC_da(std::vector<float>& a, std::vector<float>& y);
+  std::vector<float> dsigma_dz(std::vector<float>& z);
   
   Tensor dC_dw(Sample& a, const Tensor& delta);
   //d^L= dC/da^{L} * a'(z^L)
-  Tensor BP1(std::vector<double>& input); 
+  Tensor BP1(std::vector<float>& input);
   //d^l=((w^{l+1}^T d^{l+1}) * a'(z^l)   //* is hadamard product
-  Tensor BP2(const Tensor& w, const Tensor& delta, std::vector<double>& z);
+  Tensor BP2(const Tensor& w, const Tensor& delta, std::vector<float>& z);
   //dC/dw^l_{j,k} = d^l_j a^{l-1}_k
-  Tensor BP4(std::vector<double>& a, const Tensor& delta);
+  Tensor BP4(std::vector<float>& a, const Tensor& delta);
 
 
 
@@ -65,10 +65,10 @@ protected:
   std::vector<Layer> layers;
   std::vector<Layer> gradLayers;
   std::shared_ptr<Activation> activation;
-  double learningRate = 1.0;
+  float learningRate = 1.0;
 
   //temp
-  std::vector<std::vector<double>> a;
-  std::vector<std::vector<double>> z;
+  std::vector<std::vector<float>> a;
+  std::vector<std::vector<float>> z;
 };
 

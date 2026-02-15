@@ -11,8 +11,8 @@
 #define CUDA_CHECK(err) {if (err != cudaSuccess){printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__, __LINE__);exit(EXIT_FAILURE);}}
 
 __device__ __forceinline__
-double dot(const double* a, const double* b, int n) {
-    double s = 0.0;
+float dot(const float* a, const float* b, int n) {
+    float s = 0.0;
     for (int i = 0; i < n; ++i)
         s += a[i] * b[i];
     return s;
@@ -21,13 +21,13 @@ double dot(const double* a, const double* b, int n) {
 //W:[out_dim * in_dim]
 //v:[in_dim]
 //output:[out_dim]
-__global__ void mat_vec_mul_kernel(const double* W, const double* v, double* output, int in_dim, int out_dim)
+__global__ void mat_vec_mul_kernel(const float* W, const float* v, float* output, int in_dim, int out_dim)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= out_dim) {
         return;
     }
-    double s = 0.0;
+    float s = 0.0;
     for (int j = 0; j < in_dim; ++j) {
         s += W[i * in_dim + j] * v[j];
     }
@@ -37,9 +37,9 @@ __global__ void mat_vec_mul_kernel(const double* W, const double* v, double* out
 //dispatch A* C threads in total
 __global__
 void mat_mul_kernel(
-    const double* W,   // [A * B]
-    const double* V,   // [B * C]
-    double* output,    // [A * C]
+    const float* W,   // [A * B]
+    const float* V,   // [B * C]
+    float* output,    // [A * C]
     int A,
     int B,
     int C
@@ -49,7 +49,7 @@ void mat_mul_kernel(
     if (i >= A || j >= C) {
         return;
     }
-    double s = 0.0;
+    float s = 0.0;
     for (int k = 0; k < B; ++k) {
         s += W[i * B + k] * V[k * C + j];
     }
@@ -59,7 +59,7 @@ void mat_mul_kernel(
 // A: N1 x N2
 // x: N2
 // y: N1
-__global__ void tiled_mat_vec_kernel(const double* A, const double* x, double* y, int N1, int N2)
+__global__ void tiled_mat_vec_kernel(const float* A, const float* x, float* y, int N1, int N2)
 {
     // Block/thread indices
     int by = blockIdx.y;
@@ -72,10 +72,10 @@ __global__ void tiled_mat_vec_kernel(const double* A, const double* x, double* y
 
     if (row >= N1) return;
 
-    __shared__ double sh_A[TILE_WIDTH][TILE_WIDTH];  // 缓存 A 的 tile
-    __shared__ double sh_x[TILE_WIDTH];             // 缓存向量 x 的 tile
+    __shared__ float sh_A[TILE_WIDTH][TILE_WIDTH];  // 缓存 A 的 tile
+    __shared__ float sh_x[TILE_WIDTH];             // 缓存向量 x 的 tile
 
-    double sum = 0.0;
+    float sum = 0.0;
 
     int numTiles = (N2 + TILE_WIDTH - 1) / TILE_WIDTH;
 
@@ -114,7 +114,7 @@ __global__ void tiled_mat_vec_kernel(const double* A, const double* x, double* y
 //A: N1*N2
 //B: N2*N3
 //C: N1*N3
-__global__ void tiled_mat_mul_kernel(double* A, double* B, double* C, int N1, int N2, int N3)
+__global__ void tiled_mat_mul_kernel(float* A, float* B, float* C, int N1, int N2, int N3)
 {
     //// Ensure that TILE_WIDTH = BLOCK_SIZE
     //assert(TILE_WIDTH == blockDim.x);
@@ -136,11 +136,11 @@ __global__ void tiled_mat_mul_kernel(double* A, double* B, double* C, int N1, in
     }
 
     // Allocating shared memory
-    __shared__ double sh_A[TILE_WIDTH][TILE_WIDTH];
-    __shared__ double sh_B[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float sh_A[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float sh_B[TILE_WIDTH][TILE_WIDTH];
 
     // Parallel mat mul
-    double value = 0;
+    float value = 0;
     int phaseCount = (N2 + TILE_WIDTH - 1) / TILE_WIDTH;
     for (int phase = 0; phase < phaseCount; phase++)
     {
@@ -178,7 +178,7 @@ __global__ void tiled_mat_mul_kernel(double* A, double* B, double* C, int N1, in
 //A: N1*N2
 //B: N2*N3
 //C: N1*N3
-__global__ void tiled_mat_mul_kernel_ex(double* A, double* B, double* C, int N1, int N2, int N3)
+__global__ void tiled_mat_mul_kernel_ex(float* A, float* B, float* C, int N1, int N2, int N3)
 {
     // Details regarding this thread
     int by = blockIdx.y;
@@ -193,11 +193,11 @@ __global__ void tiled_mat_mul_kernel_ex(double* A, double* B, double* C, int N1,
 
 
     // Allocating shared memory
-    __shared__ double sh_A[TILE_WIDTH][TILE_WIDTH];
-    __shared__ double sh_B[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float sh_A[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float sh_B[TILE_WIDTH][TILE_WIDTH];
 
     // Parallel mat mul
-    double value = 0;
+    float value = 0;
     int phaseCount = (N2 + TILE_WIDTH - 1) / TILE_WIDTH;
     for (int phase = 0; phase < phaseCount; phase++)
     {
@@ -238,7 +238,7 @@ __global__ void tiled_mat_mul_kernel_ex(double* A, double* B, double* C, int N1,
 
 }
 
-__global__ void mat_add_kernel(const double* a, const double* b, double* c, int N1, int N2)
+__global__ void mat_add_kernel(const float* a, const float* b, float* c, int N1, int N2)
 {
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int i = blockIdx.y * blockDim.y + threadIdx.y;

@@ -5,7 +5,7 @@
 #include "cuLayer.h"
 #include <memory>
 
-using Sample = std::vector<double>;
+using Sample = std::vector<float>;
 
 
 //struct Weight {
@@ -29,18 +29,18 @@ struct CuNNWorkspace {
         loss = nullptr;
     }
     // ----------------- Forward -----------------
-    double* x = nullptr;                           // 输入激活 X, size = batch * in_dim
+    float* x = nullptr;                           // 输入激活 X, size = batch * in_dim
     // ----------------- 输出 / Loss -----------------
-    double* y = nullptr;           // batch 内标签 y, size = batch * output_dim
-    double* loss_vec = nullptr;    // batch 内每个样本 loss, size = batch
-    double* loss = nullptr;        // 总 loss, size = 1
+    float* y = nullptr;           // batch 内标签 y, size = batch * output_dim
+    float* loss_vec = nullptr;    // batch 内每个样本 loss, size = batch
+    float* loss = nullptr;        // 总 loss, size = 1
 };
 
 
 class CuNN
 {
 public:
-    CuNN(double lr = 1.0)
+    CuNN(float lr = 1.0)
         :learningRate(lr)
         ,deviceMemorySize(0)
         ,deviceMemory(nullptr)
@@ -55,7 +55,7 @@ public:
     //reset to the state of just created, only keep the learning rate
     void Clear();
 
-    void SetLearningRate(double lr) {
+    void SetLearningRate(float lr) {
         learningRate = lr;
     }
 
@@ -68,17 +68,19 @@ public:
     void AllocWorkSpaceIfNeeded();
 
     void Forward(const Tensor& x);
-    Tensor ForwardAndFetch(const Tensor& x);
+    Tensor ForwardAndFetchPredY(const Tensor& x);
 
-    void Backward(Tensor& x, Tensor& y);
+    void Backward(const Tensor& y);
 
     void Step();
 
+    void FetchGrad();
+
     void FetchResultToCpu();
 
-    double MseLoss(Tensor& xs, Tensor& ys);
+    float MseLoss(Tensor& xs, Tensor& ys);
 
-    void Train(Tensor& xs, Tensor& ys, int maxEpochs, double tolerance);
+    void Train(Tensor& xs, Tensor& ys, int maxEpochs, float tolerance);
 
     void Print();
 
@@ -89,9 +91,12 @@ public:
     void ReleaseDeviceMemory();
 
 protected:
+    //backup of input and label y
+    Tensor input;
+    Tensor label;
 
     std::vector<std::unique_ptr<CuLayer>> layers;
-    double learningRate = 1.0;
+    float learningRate = 1.0;
 
 
     //device memory manager, all used memory use one buffer....

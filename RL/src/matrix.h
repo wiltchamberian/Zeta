@@ -52,15 +52,15 @@ public:
     }
 
     // ทรฮส
-    void Set(int i, int j, double v) {
+    void Set(int i, int j, float v) {
         data_[i * width + j] = v;
     }
 
-    double* operator[] (int k) {
+    float* operator[] (int k) {
         return data_.data() + k * width;
     }
 
-    void resize(int width, int height, double val = 0.0) {
+    void resize(int width, int height, float val = 0.0) {
         data_.resize(width * height, val);
         this->width = width;
         this->height = height;
@@ -70,11 +70,11 @@ public:
         return height;
     }
 
-    const double* data() const {
+    const float* data() const {
         return data_.data();
     }
 
     int width;
     int height;
-    std::vector<double> data_;
+    std::vector<float> data_;
 };

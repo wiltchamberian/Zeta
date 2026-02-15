@@ -3,16 +3,16 @@
 #include <iostream>
 #include <string>
 
-std::vector<double> NeuralNetwork::dC_da(std::vector<double>& a, std::vector<double>& y) {
-  std::vector<double> output(a.size(), 0);
+std::vector<float> NeuralNetwork::dC_da(std::vector<float>& a, std::vector<float>& y) {
+  std::vector<float> output(a.size(), 0);
   for (int i = 0; i < a.size(); ++i) {
     output[i] = a[i] - y[i];
   }
   return output;
 }
 
-std::vector<double> NeuralNetwork::dsigma_dz(std::vector<double>& z) {
-  std::vector<double> b(z.size());
+std::vector<float> NeuralNetwork::dsigma_dz(std::vector<float>& z) {
+  std::vector<float> b(z.size());
   for (int i = 0; i < z.size(); ++i) {
     b[i] = activation->dActivate(z[i]);
   }
@@ -29,7 +29,7 @@ Tensor NeuralNetwork::dC_dw(Sample& a, const Tensor& delta) {
   return w;
 }
 
-Tensor NeuralNetwork::BP1(std::vector<double>& y) {
+Tensor NeuralNetwork::BP1(std::vector<float>& y) {
   Tensor output(y.size());
 
   auto d1 = dC_da(a.back(), y);
@@ -40,7 +40,7 @@ Tensor NeuralNetwork::BP1(std::vector<double>& y) {
   return output;
 }
 
-Tensor NeuralNetwork::BP2(const Tensor& w, const Tensor& delta, std::vector<double>& z) {
+Tensor NeuralNetwork::BP2(const Tensor& w, const Tensor& delta, std::vector<float>& z) {
   Tensor output(z.size());
   for (int i = 0; i < output.size(); ++i) {
     output(i) = 0;
@@ -55,11 +55,11 @@ Tensor NeuralNetwork::BP2(const Tensor& w, const Tensor& delta, std::vector<doub
   return output;
 }
 
-Tensor NeuralNetwork::BP4(std::vector<double>& a, const Tensor& delta) {
+Tensor NeuralNetwork::BP4(std::vector<float>& a, const Tensor& delta) {
   return dC_dw(a, delta);
 }
 
-std::vector<double> NeuralNetwork::Forward(std::vector<double>& x) {
+std::vector<float> NeuralNetwork::Forward(std::vector<float>& x) {
   a.resize(layers.size());
   for (int i = 0; i < layers.size(); ++i) {
     a[i].resize(layers[i].data().shape[0], 0);
@@ -139,12 +139,12 @@ void NeuralNetwork::Step() {
     }
 }
 
-double NeuralNetwork::MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys) {
-    double totalLoss = 0.0;
+float NeuralNetwork::MseLoss(const std::vector<Sample>& xs, const std::vector<Sample>& ys) {
+    float totalLoss = 0.0;
     for (int i = 0; i < xs.size(); ++i) {
-    const std::vector<double>& pred = xs[i];
+    const std::vector<float>& pred = xs[i];
         for (int j = 0; j < pred.size(); ++j) {
-            double diff = pred[j] - ys[i][j];
+            float diff = pred[j] - ys[i][j];
             totalLoss += diff * diff;
         }
     }
@@ -152,10 +152,10 @@ double NeuralNetwork::MseLoss(const std::vector<Sample>& xs, const std::vector<S
 }
 
 void NeuralNetwork::Train(std::vector<Sample>& xs, std::vector<Sample>& ys,
-  int maxEpochs, double tolerance) {
+  int maxEpochs, float tolerance) {
     for (int epoch = 0; epoch < maxEpochs; ++epoch) {
 
-        double loss = MseLoss(xs, ys);
+        float loss = MseLoss(xs, ys);
         std::cout << "Epoch " << epoch << " Loss: " << loss << std::endl;
 
         Backward(xs, ys);

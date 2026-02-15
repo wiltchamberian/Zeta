@@ -36,16 +36,16 @@ struct TensorShape {
 
 
 struct DeviceLayer {
-    double* weights;
-    double* bias;
-    double* grad_w;
-    double* grad_b;
-    int w_size;
-    int in_dim;
-    int b_size;
+    float* weights = nullptr;
+    float* bias = nullptr;
+    float* grad_w = nullptr;
+    float* grad_b = nullptr;
+    int w_size = 0;
+    int in_dim = 0;
+    int b_size = 0;
 
-    double* activation;
-    double* delta;
+    float* activation = nullptr;
+    float* delta = nullptr;
     
 };
 
@@ -66,11 +66,13 @@ public:
         b = Tensor(output);
     }
 
-    virtual void forward(const double* input) = 0;
-    virtual void backward(const double* delta_next, const double* w_next) = 0;
-    virtual void wgrad(const double*) = 0;
+    virtual void forward(const float* input) = 0;
+    virtual void backward(const float* delta_next, const float* w_next) = 0;
+    virtual void wgrad(const float*) = 0;
     virtual void bgrad() = 0;
 
+    //virtual Shape GetInputShape() = 0;
+    //virtual Shape GetOutputShape() = 0;
     virtual TensorShape InferOutputShape(TensorShape shape) = 0;
     virtual size_t GetWorkspaceSize() = 0;
     virtual void BindWorkspace(void* ptr) = 0;
@@ -85,6 +87,9 @@ public:
     Tensor weights;
     Tensor b;
 
+    Tensor weights_grad;
+    Tensor bias_grad;
+
     int in_dim;
     int out_dim;
 
@@ -92,23 +97,24 @@ public:
     
     CuLayer* next = nullptr;
     CuLayer* prev = nullptr;
+
+    float alpha = 1.0;
 };
 
 class CuLinearLeakyReluLayer :public CuLayer {
 public:
     using CuLayer::CuLayer;
 
-    void forward(const double* input) override;
+    void forward(const float* input) override;
 
-    void backward(const double* delta_next, const double* w_next);
-    void wgrad(const double*);
+    void backward(const float* delta_next, const float* w_next);
+    void wgrad(const float*);
     void bgrad();
+
     TensorShape InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
 
-    //device info
-    double alpha = 0.0;
 
 };
 
@@ -122,11 +128,11 @@ public:
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
 
-    void forward(const double* input);
+    void forward(const float* input);
 
-    void backward(const double* delta_next, const double* w_next);
+    void backward(const float* delta_next, const float* w_next);
 
-    void wgrad(const double*);
+    void wgrad(const float*);
 
     void bgrad();
 
@@ -134,7 +140,6 @@ public:
     int padW = 0;
     int strideH = 1;
     int strideW = 1;
-    float alpha = 0.0;
 };
 
 

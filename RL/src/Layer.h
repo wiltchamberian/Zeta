@@ -24,23 +24,23 @@ public:
     b = Tensor(output);
   }
 
-  virtual void forward(dim3 grid, dim3 block, const double* input,      // batch x in_dim
-      const double* weights,    // out_dim x in_dim
-      const double* bias,       // out_dim
-      double* output,           // batch x out_dim
+  virtual void forward(dim3 grid, dim3 block, const float* input,      // batch x in_dim
+      const float* weights,    // out_dim x in_dim
+      const float* bias,       // out_dim
+      float* output,           // batch x out_dim
       int batch, int in_dim, int out_dim) {
   };
 
-  virtual void backward(dim3 grid, dim3 block, const double* delta_next, // batch x dim_delta_next ¦Ä^{l+1}
-      const double* W_next,     // dim_delta_next x  dim_delta W^{l+1}
-      const double* a,          // batch x dim_delta a^l
-      double* delta,            // batch x dim_delta Êä³ö ¦Ä^l
+  virtual void backward(dim3 grid, dim3 block, const float* delta_next, // batch x dim_delta_next ¦Ä^{l+1}
+      const float* W_next,     // dim_delta_next x  dim_delta W^{l+1}
+      const float* a,          // batch x dim_delta a^l
+      float* delta,            // batch x dim_delta Êä³ö ¦Ä^l
       int batch,
       int dim_delta,
       int dim_delta_next) {
   };
 
-  void ApplyGradient(Layer& other, double learningRate);
+  void ApplyGradient(Layer& other, float learningRate);
 
 
   friend Layer operator + (const Layer& l1, const Layer& l2);

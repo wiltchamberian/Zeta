@@ -13,7 +13,8 @@ int main()
 
     CudaGetDeviceProps();
 
-    test_cnn();
+    //test_cnn_linear();
+    test_cnn_conv();
 
 
     return 0;

@@ -1,7 +1,7 @@
 #include "Layer.h"
 #include <algorithm>
 
-void Layer::ApplyGradient(Layer& other, double learningRate) {
+void Layer::ApplyGradient(Layer& other, float learningRate) {
   for (int i = 0; i < weights.shape[0]; ++i) {
     for (int j = 0; j < weights.shape[1]; ++j) {
       weights(i, j) = weights(i, j) - other.weights(i, j) * learningRate;

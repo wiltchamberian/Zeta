@@ -2,36 +2,36 @@
 
 class Activation {
 public:
-  virtual double activate(const double x) = 0;
-  virtual double dActivate(const double x) = 0;
+  virtual float activate(const float x) = 0;
+  virtual float dActivate(const float x) = 0;
 };
 
 class LinearActivation :public Activation {
 public:
-  double activate(const double x);
-  double dActivate(const double x);
+    float activate(const float x);
+    float dActivate(const float x);
 };
 
 class RELU: public Activation
 {
 public:
-  double activate(const double x);
-  double dActivate(const double x);
+    float activate(const float x);
+    float dActivate(const float x);
 };
 
 class LeakyRELU : public Activation {
 public:
-  LeakyRELU(double slop = 0.01) :a(slop) {
+  LeakyRELU(float slop = 0.01) :a(slop) {
 
   }
-  double activate(const double x);
-  double dActivate(const double x);
-  void SetA(double x) {
+  float activate(const float x);
+  float dActivate(const float x);
+  void SetA(float x) {
     a = x;
   }
-  double GetA(double x) {
+  float GetA(float x) {
     return a;
   }
 protected:
-  double a;
+    float a;
 };
