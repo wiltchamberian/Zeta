@@ -4,6 +4,7 @@
 #include "tensor.h"
 #include "cuLayer.h"
 #include <memory>
+#include <functional>
 
 using Sample = std::vector<float>;
 
@@ -36,6 +37,11 @@ struct CuNNWorkspace {
     float* loss = nullptr;        // зм loss, size = 1
 };
 
+class CuHead {
+public:
+    std::vector<float> policy;
+    float value;
+};
 
 class CuNN
 {
@@ -59,9 +65,13 @@ public:
         learningRate = lr;
     }
 
-    void AddLayer(std::unique_ptr<CuLayer> layer);
+    void SetInput(const Tensor& tensor);
 
-    void Build(TensorShape shape);
+    void SetLabel(const Tensor& tensor);
+
+    void AddLayer(std::shared_ptr<CuLayer> layer);
+
+    TensorShape Build(TensorShape shape);
 
     void AllocDeviceMemory();
 
@@ -78,11 +88,18 @@ public:
 
     void FetchResultToCpu();
 
+    void SetHead(std::shared_ptr<CuLayer> l);
+    void SetTail(std::shared_ptr<CuLayer> l);
+
     float MseLoss(Tensor& xs, Tensor& ys);
 
     void Train(Tensor& xs, Tensor& ys, int maxEpochs, float tolerance);
 
     void Print();
+
+    void Travel(std::function<void(CuLayer*)> ff);
+
+    void TravelBackward(std::function<void(CuLayer*)> ff);
 
     void PrintGrad();
 
@@ -95,7 +112,9 @@ protected:
     Tensor input;
     Tensor label;
 
-    std::vector<std::unique_ptr<CuLayer>> layers;
+    std::shared_ptr<CuLayer> head = nullptr;
+    std::shared_ptr<CuLayer> tail = nullptr;//to loss
+    std::vector<std::shared_ptr<CuLayer>> layers;
     float learningRate = 1.0;
 
 

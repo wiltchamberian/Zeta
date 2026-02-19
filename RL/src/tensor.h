@@ -1,6 +1,7 @@
 ﻿#pragma once 
 
 #include "device_launch_parameters.h"
+#include <iomanip>
 #include <vector>
 #include <memory>
 #include <ranges>
@@ -743,7 +744,7 @@ public:
                 pos_this += idx[i] * stride[i];
                 std::cout << idx[i] << ((i == R - 1) ? "":",");
             }
-            std::cout << "=" << (*data_)[pos_this] <<" ";
+            std::cout << "=" << std::fixed << std::setprecision(1)<< (*data_)[pos_this] <<" ";
 
             // 多维索引进位
             for (int d = R - 1; d >= 0; --d) {
@@ -763,44 +764,8 @@ private:
     std::shared_ptr<std::vector<T>> data_;
 
     // -------------------
-    // slice 计算
-    // -------------------
-    /*TensorT<T> SliceTensor(const std::vector<std::variant<Index, Slice>>& indices) const {
-        assert(indices.size() <= shape.size());
-        TensorT<T> v;
-        v.data = data;
-        v.offset = offset;
-        v.stride = stride;
-        v.shape = shape;
-
-        for (size_t i = 0; i < indices.size(); ++i) {
-            if (std::holds_alternative<Index>(indices[i])) {
-                Index idx = std::get<Index>(indices[i]);
-                assert(idx < v.shape[i]);
-                v.offset += idx * v.stride[i];
-                v.shape[i] = 1;
-            }
-            else if (std::holds_alternative<Slice>(indices[i])) {
-                Slice s = std::get<Slice>(indices[i]);
-                Index start = s.start;
-                Index end = (s.end == 0 ? v.shape[i] : s.end);
-                Index step = s.step;
-                assert(end <= v.shape[i]);
-                v.offset += start * v.stride[i];
-                v.shape[i] = (end - start + step - 1) / step;
-                v.stride[i] *= step;
-            }
-        }
-        return v;
-    }*/
-
-    // -------------------
     // 展开元素索引
     // -------------------
-    //template<typename... Args>
-    //__host__ Index ExpandIndices(Args... args) const {
-    //    return (args + ...);   //
-    //}
 
     template<typename... Args>
     Index ExpandIndices(Args... args) const {

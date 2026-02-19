@@ -49,8 +49,7 @@ __global__ void mse_loss_kernel(
     const float* y,       // batch x out_dim
     float* delta,         // batch x out_dim Êä³ö ¦Ä^L
     int batch,
-    int out_dim,
-    float alpha
+    int out_dim
 );
 
 __global__ void linear_backward_kernel(
@@ -108,6 +107,20 @@ __global__ void apply_gradien_kernel(
     int dim_y,
     int dim_x,
     float learning_rate
+);
+
+__global__ void softmax_forward_kernel(
+    const float* input, // N * C * H * W
+    float* output, //N * C * H * W
+    int CHW
+);
+
+__global__ void softmax_backward_kernel(
+    const float* ylabel,
+    const float* ps,
+    float* output,
+    int N,
+    int CHW
 );
 
 __global__ void conv_forward_kernel(

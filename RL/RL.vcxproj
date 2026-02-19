@@ -105,17 +105,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Activation.cpp" />
-    <ClCompile Include="src\cuda\cuda_conv_sample.cpp" />
     <ClCompile Include="src\fp16_emu.cpp" />
     <ClCompile Include="src\Layer.cpp" />
     <ClCompile Include="src\mcts.cpp" />
     <ClCompile Include="src\NeuralNetwork.cpp" />
     <ClCompile Include="src\tensor.cpp" />
+    <ClCompile Include="src\TicTac.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Activation.h" />
     <ClInclude Include="src\cuda\CuActivation.h" />
-    <ClInclude Include="src\cuda\cuda_sample.h" />
     <ClInclude Include="src\cuda\cuLayer.h" />
     <ClInclude Include="src\cuda\CuNN.h" />
     <ClInclude Include="src\cuda\cu_tool.h" />
@@ -128,6 +127,7 @@
     <ClInclude Include="src\NeuralNetwork.h" />
     <ClInclude Include="src\tensor.h" />
     <ClInclude Include="src\test.h" />
+    <ClInclude Include="src\TicTac.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

@@ -1,6 +1,7 @@
 #include "kernels.h"
 #include <cuda_runtime.h>
-
+#include <cuda.h>
+#include <cfloat>
 
 
 //input:X, W
@@ -74,8 +75,7 @@ __global__ void mse_loss_kernel(
     const float* y,       // batch x out_dim
     float* delta,         // batch x out_dim Êä³ö ¦Ä^L
     int batch,
-    int out_dim,
-    float alpha
+    int out_dim
 ) {
     int j = blockIdx.x * blockDim.x + threadIdx.x; // neural
     int i = blockIdx.y * blockDim.y + threadIdx.y; // sample
@@ -232,6 +232,127 @@ __global__ void apply_gradien_kernel(
     }
 }
 
+/*****************gpt********************************/
+#define WARP_SIZE 32
+
+// Warp-level reduction for max
+__inline__ __device__
+float warp_reduce_max(float val) {
+    for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2)
+        val = fmaxf(val, __shfl_xor_sync(0xFFFFFFFF, val, offset));
+    return val;
+}
+
+// Warp-level reduction for sum
+__inline__ __device__
+float warp_reduce_sum(float val) {
+    for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2)
+        val += __shfl_xor_sync(0xFFFFFFFF, val, offset);
+    return val;
+}
+
+
+
+struct SoftmaxState {
+    float m;  // maximum value
+    float d;  // denominator (sum of exponentials)
+};
+
+__device__ SoftmaxState reduceOp(SoftmaxState a, SoftmaxState b) {
+    SoftmaxState res;
+    res.m = fmaxf(a.m, b.m);
+    float factor_a = (a.m == -INFINITY) ? 0.0f : __expf(a.m - res.m);
+    float factor_b = (b.m == -INFINITY) ? 0.0f : __expf(b.m - res.m);
+    res.d = a.d * factor_a + b.d * factor_b;
+    return res;
+}
+
+__device__ SoftmaxState warpReduceSoftmax(SoftmaxState val) {
+#pragma unroll
+    for (int offset = 16; offset > 0; offset /= 2) {
+        SoftmaxState other;
+        other.m = __shfl_down_sync(0xffffffff, val.m, offset);
+        other.d = __shfl_down_sync(0xffffffff, val.d, offset);
+
+        val = reduceOp(val, other);
+    }
+    return val;
+}
+
+
+__global__ void softmax_forward_kernel(
+    const float* input, 
+    float* output, 
+    int M) 
+{
+    int laneId = threadIdx.x & (WARP_SIZE - 1);
+    int warpId = threadIdx.x / WARP_SIZE;
+    int tid = threadIdx.x;
+    int row = blockIdx.x;
+    int numWarps = blockDim.x / WARP_SIZE;
+    const float* row_input = input + row * M;
+    float* row_output = output + row * M;
+
+    // Each thread processes elements in a strided loop
+    SoftmaxState localState = { -INFINITY, 0.0f };
+    for (int i = threadIdx.x; i < M; i += blockDim.x) {
+        float val = static_cast<float>(row_input[i]);
+        float new_m = fmaxf(localState.m, val);
+        float factor = __expf(localState.m - new_m);
+        localState.d = localState.d * factor + __expf(val - new_m);
+        localState.m = new_m;
+    }
+    // Warp-level reduction ¡ú shared memory ¡ú final reduction
+    __shared__ float shared_m[32];  // Max 32 warps per block
+    __shared__ float shared_d[32];
+
+    // Each warp reduces its values
+    localState = warpReduceSoftmax(localState);
+    // First thread in each warp writes to shared memory
+    // Try to imagine this in your head; multiple warps 
+    // storing their final_state in their first position
+    if (laneId == 0) {
+        shared_m[warpId] = localState.m;
+        shared_d[warpId] = localState.d;
+    }
+    __syncthreads();
+
+    // First warp reduces all warp results
+    if (warpId == 0) {
+        SoftmaxState warpState = (tid < numWarps) ?
+            SoftmaxState{ shared_m[tid], shared_d[tid] } :
+            SoftmaxState{ -INFINITY, 0.0f };
+
+        warpState = warpReduceSoftmax(warpState);
+
+        if (tid == 0) {
+            shared_m[0] = warpState.m;
+            shared_d[0] = warpState.d;
+        }
+    }
+    __syncthreads();
+
+    // Final normalization pass
+    for (int i = threadIdx.x; i < M; i += blockDim.x) {
+        float val = row_input[i];
+        row_output[i] = __expf(val - shared_m[0]) / shared_d[0];
+    }
+}
+
+__global__ void softmax_backward_kernel(
+    const float* ylabel,
+    const float* ps,
+    float* output,
+    int N,
+    int CHW
+) {
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= N || j >= CHW) return;
+
+    output[i * CHW + j] = ps[i * CHW + j] - ylabel[i * CHW + j];
+}
+
 __global__ void conv_forward_kernel(
     const float* input,      // N * C * H * W -> CRS * NPQ
     const float* weights,    // K * (CRS)
@@ -284,10 +405,10 @@ __global__ void conv_forward_kernel(
 
             //non-trival index computation, TODO: use bit operation to optimize
             int channelID = B_y / RS;
-            int alpha = B_y % RS;
+            int rs_index = B_y % RS;
             
-            int r = alpha / S;
-            int s = alpha % S;
+            int r = rs_index / S;
+            int s = rs_index % S;
 
             //input(batchID, channelID, h=p * strideH -padH + r, w = q * strideW -padW + s) 
             int inner_y = p * strideH -padH + r;

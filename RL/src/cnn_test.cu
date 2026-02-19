@@ -1,6 +1,7 @@
 #include "cnn_test.h"
 #include "CuNN.h"
 #include "cuLayer.h"
+#include "TicTac.h"
 #include <memory>
 
 void test_cnn_linear() {
@@ -49,34 +50,65 @@ void test_cnn_linear() {
 }
 
 void test_cnn_conv() {
-
+    
     /********************convolution********************/
+    //test for tic-tac 
+
     CuNN network;
     network.SetLearningRate(0.1);
     network.Clear();
     std::cout << "start test convolution\n";
 
-    std::unique_ptr<CuConvolutionLayer> c1 = std::make_unique<CuConvolutionLayer>(2, 2, 2, 2);
-    // out 0
-    c1->weights.setData({ 1,0,0,1, 0,1,1,0,1,1,1,1,1,-1,-1,1 });
-    network.AddLayer(std::move(c1));
+    int batchSize = 1;
+    //input N * 2 * 3 * 3
+   
 
-    Tensor convX(1, 2, 4, 4);
-    int t = 0;
+    //layer
+    auto c1 = std::make_shared<CuConvolutionLayer>(8, 2, 3, 3);
+    c1->alpha = 0.1;
+    network.SetHead(c1);
+
+    auto c2 = std::make_shared<CuConvolutionLayer>(4, 8, 3, 3);
+    c2->alpha = 0.1;
+    c1->AddLayer(c2.get());
+
+    //1d conv
+    auto c3 = std::make_shared<CuConvolutionLayer>(1, 4, 3, 3);
+    c3->alpha = 0.1;
+    c2->AddLayer(c3.get());
+
+    auto fully1 = std::make_shared<CuLinearLeakyReluLayer>(9, 9);
+    auto cross = std::make_shared<CuSoftmaxCrossEntropyLayer>(batchSize);
+    fully1->AddLayer(cross.get());
+
+    auto fully2 = std::make_shared<CuLinearLeakyReluLayer>(9, 1);
+    auto c4 = std::make_shared<CuMseLayer>(1,1,1);
+    fully2->AddLayer(c4.get());
+
+    c3->AddLayer(fully1.get());
+    c3->AddLayer(fully2.get());
+
+    //input
+    int H = 4;
+    int W = 4;
+    Tensor convX(1, 2, H, W);
+    TensorShape shape(1, 2, H, W);
+    
     std::vector<float> d;
     for (int i = 0; i < 32; ++i) {
         d.push_back(i);
     }
     convX.setData(d);
-    TensorShape shape(1, 2, 4, 4);
-    Tensor convY(1, 2, 3, 3);
+    
+    
+    TensorShape outShape = network.Build(shape);
 
-    network.Build(shape);
-
+    //output
+    Tensor label(1, 2, outShape.H, outShape.W);
     Tensor predY = network.ForwardAndFetchPredY(convX);
     std::cout << "predY:\n";
     predY.print("y");
-    network.Backward(convY);
+    network.Backward(label);
 
     network.FetchGrad();
     network.PrintGrad();
@@ -86,5 +118,10 @@ void test_cnn_conv() {
     network.FetchResultToCpu();
 
     network.Print();
+}
+
+void tiktac() {
+
+
 }
 

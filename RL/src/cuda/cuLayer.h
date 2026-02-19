@@ -46,43 +46,83 @@ struct DeviceLayer {
 
     float* activation = nullptr;
     float* delta = nullptr;
+    float* delta1 = nullptr;
     
 };
 
 class CuLayer {
 public:
-    CuLayer()
-        :in_dim(0)
-        , out_dim(0) {
+    CuLayer(){
 
     }
 
-    CuLayer(int input, int output)
-        :in_dim(input)
-        , out_dim(output)
-    {
-        weights = Tensor(output, input); //reverse order to level up computation performance
-
-        b = Tensor(output);
-    }
-
-    virtual void forward(const float* input) = 0;
-    virtual void backward(const float* delta_next, const float* w_next) = 0;
-    virtual void wgrad(const float*) = 0;
-    virtual void bgrad() = 0;
+    virtual void forward() = 0;
+    //virtual void backward(const float* delta_next, const float* w_next) = 0;
+    //virtual void dgrad() = 0;
+    //virtual void wgrad() = 0;
+    //virtual void bgrad() = 0;
+    virtual void backwardEx() = 0;
 
     //virtual Shape GetInputShape() = 0;
     //virtual Shape GetOutputShape() = 0;
     virtual TensorShape InferOutputShape(TensorShape shape) = 0;
     virtual size_t GetWorkspaceSize() = 0;
+    virtual size_t GetDeviceSize() = 0;
     virtual void BindWorkspace(void* ptr) = 0;
+    virtual void BindDevice(void* ptr) = 0;
+    virtual float* GetActivation() = 0;
+    virtual size_t GetActivationSize() = 0;
+    virtual float* GetDelta() = 0;
+    virtual size_t GetDeltaSize() = 0;
+
+    void AddLayer(CuLayer* layer) {
+        this->nexts.push_back(layer);
+        layer->prevs.push_back(this);
+    }
+    TensorShape inputShape;
+    TensorShape outputShape;
+    std::vector<CuLayer*> prevs;
+    std::vector<CuLayer*> nexts;
+
+    
+
+    //middle variable
+    int visit_count = 0;
+    float* prevActivation = nullptr;
+};
+
+class CuLinearLeakyReluLayer :public CuLayer {
+public:
+    using CuLayer::CuLayer;
+    CuLinearLeakyReluLayer(int input, int output)
+    :in_dim(input)
+    ,out_dim(output){
+        weights = Tensor(output, input); //reverse order to level up computation performance
+        b = Tensor(output);
+    }
+
+    void forward() override;
+
+    void backward(const float* delta_next, const float* w_next);
+    void backwardEx();
+    void dgrad();
+    void wgrad();
+    void bgrad();
+
+    TensorShape InferOutputShape(TensorShape shape) override;
+    size_t GetWorkspaceSize();
+    size_t GetDeviceSize();
+    void BindWorkspace(void* ptr);
+    void BindDevice(void* ptr);
+    float* GetActivation();
+    size_t GetActivationSize();
+    float* GetDelta();
+    size_t GetDeltaSize();
+    float* GetPrevActivation();
 
     Tensor& data() {
         return weights;
     }
-
-    TensorShape inputShape;
-    TensorShape outputShape;
 
     Tensor weights;
     Tensor b;
@@ -94,28 +134,81 @@ public:
     int out_dim;
 
     DeviceLayer dl;
-    
-    CuLayer* next = nullptr;
-    CuLayer* prev = nullptr;
-
     float alpha = 1.0;
 };
 
-class CuLinearLeakyReluLayer :public CuLayer {
+class CuSoftmaxCrossEntropyLayer : public CuLayer {
+public:
+    CuSoftmaxCrossEntropyLayer(int batchSize) :batchSize(batchSize) {
+
+    }
+    void forward();
+    void backwardEx();
+
+    size_t GetDeviceSize() {
+        auto& shape = prevs[0]->outputShape;
+        return shape.C * shape.H * shape.W;
+    }
+    void BindWorkspace(void* ptr) {
+        activation = reinterpret_cast<float*>(ptr);
+    }
+    void BindDevice(void* ptr) {
+        y = reinterpret_cast<float*>(ptr);
+    }
+    float* GetActivation() {
+        return activation;
+    }
+    size_t GetActivationSize() {
+        auto& shape = prevs[0]->outputShape;
+        return shape.C * shape.H * shape.W;
+    }
+    float* GetDelta() {
+        assert(false);
+        return nullptr;
+    }
+    size_t GetDeltaSize() {
+        assert(false);
+        return 0;
+    }
+
+    size_t GetWorkspaceSize() {
+        auto& shape = prevs[0]->outputShape;
+        return shape.C * shape.H * shape.W;
+    }
+
+    TensorShape InferOutputShape(TensorShape shape) {
+        assert(false);
+        return TensorShape(1, 1, 1, 1);
+    }
+
+    float* y = nullptr;
+    int batchSize = 0;
+    //softmax of input
+    float* activation = nullptr;
+
+};
+
+class CuMseLayer :public CuLayer {
 public:
     using CuLayer::CuLayer;
+    CuMseLayer(int C, int H, int W);
+    void forward();
+    void backwardEx();
 
-    void forward(const float* input) override;
-
-    void backward(const float* delta_next, const float* w_next);
-    void wgrad(const float*);
-    void bgrad();
-
-    TensorShape InferOutputShape(TensorShape shape) override;
+    TensorShape InferOutputShape(TensorShape shape);
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
+    size_t GetDeviceSize();
+    void BindDevice(void* ptr);
+    size_t GetActivationSize();
+    float* GetActivation();
+    float* GetDelta();
+    size_t GetDeltaSize();
 
-
+    Tensor label;
+    float* y = nullptr;
+    float* p = nullptr;
+    float* grad = nullptr;
 };
 
 /********************convolution layer**************************/
@@ -127,14 +220,38 @@ public:
     TensorShape InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
-
-    void forward(const float* input);
+    void BindDevice(void* ptr);
+    size_t GetDeviceSize();
+    size_t GetActivationSize();
+    float* GetActivation();
+    size_t GetDeltaSize();
+    float* GetDelta();
+    void forward();
 
     void backward(const float* delta_next, const float* w_next);
+    void dgrad();
+    void backwardEx();
 
-    void wgrad(const float*);
+    void wgrad();
 
     void bgrad();
+
+    Tensor& data() {
+        return weights;
+    }
+
+    Tensor weights;
+    Tensor b;
+
+    Tensor weights_grad;
+    Tensor bias_grad;
+
+    int in_dim;
+    int out_dim;
+
+    DeviceLayer dl;
+
+    float alpha = 1.0;
 
     int padH = 0;
     int padW = 0;

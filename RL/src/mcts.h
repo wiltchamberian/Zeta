@@ -212,11 +212,11 @@ private:
         }
 
         float value = simulate(child);
-
+        value = -value;
         edge->value_sum.fetch_add(virtual_loss_);
         edge->value_sum.fetch_add(value);
 
-        return -value;
+        return value;
     }
 
     //////////////////////////////////////////////////////////////
