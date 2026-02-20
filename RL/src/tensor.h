@@ -21,6 +21,13 @@ struct Shape {
     template<typename Iter>
     Shape(Iter first, Iter last) : dims(first, last) {}
     Shape(std::initializer_list<Index> il) : dims(il) {}
+    Shape(int dim, const Shape& sp) {
+        dims.resize(1 + sp.size());
+        dims[0] = dim;
+        for (int i = 0; i < sp.size(); ++i) {
+            dims[i + 1] = sp.dims[i];
+        }
+    }
 
     std::vector<Index>::iterator begin() {
         return dims.begin();
@@ -145,7 +152,7 @@ public:
     // -------------------
     // 构造
     // -------------------
-    TensorT() {} // 默认构造
+    TensorT():offset(0) {} // 默认构造
     TensorT(const Shape& dims) : shape(dims) { initData(); }
     template<typename... Dims>
     TensorT(Dims... dims) : shape{ static_cast<Index>(dims)... } { initData(); }
@@ -199,6 +206,10 @@ public:
         return *this;
     }
 
+    bool isEmpty() const{
+        return (numel() == 0)||(data_==nullptr);
+    }
+
     void setData(std::initializer_list<float> list) {
         assert(numel() == list.size());
         assert(is_continuous());
@@ -250,6 +261,9 @@ public:
         return numel();
     }
     size_t numel() const { 
+        if (shape.empty()) {
+            return 0;
+        }
         size_t z = 1;
         for (auto& s : shape) {
             z *= s;
@@ -257,16 +271,24 @@ public:
         return z;
     }
 
+    T* start() {
+        return data_ ? ((*data_).data() + offset):nullptr;
+    }
+
+    const T* start() const {
+        return data_ ? ((*data_).data() + offset):nullptr;
+    }
+
     T* data() {
-        return (*data_).data();
+        return data_ ? (*data_).data() : nullptr;
     }
 
     const T* data() const {
-        return (*data_).data();
+        return data_ ? (*data_).data() : nullptr;
     }
 
     bool is_continuous() const {
-        if (offset != 0) return false;
+        //if (offset != 0) return false;
         if (shape.empty()) return true;
 
         size_t expected = 1;
@@ -276,6 +298,21 @@ public:
             expected *= shape[i];
         }
         return true;
+    }
+
+    void copy(const TensorT<T>& tensor) {
+        //fast copy
+        if (is_continuous() && tensor.is_continuous()) {
+            int siz = numel();
+            if (siz == tensor.numel()) {
+                std::copy(tensor.start(), tensor.start() + siz, this->start());
+                return;
+            }
+            else {
+                assert(false);
+            }
+        }
+        assert(false);
     }
 
     TensorT<T> contiguous() const {
@@ -744,7 +781,7 @@ public:
                 pos_this += idx[i] * stride[i];
                 std::cout << idx[i] << ((i == R - 1) ? "":",");
             }
-            std::cout << "=" << std::fixed << std::setprecision(1)<< (*data_)[pos_this] <<" ";
+            std::cout << "=" << std::fixed << std::setprecision(3)<< (*data_)[pos_this] <<" ";
 
             // 多维索引进位
             for (int d = R - 1; d >= 0; --d) {

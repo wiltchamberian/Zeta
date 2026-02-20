@@ -50,6 +50,8 @@ struct DeviceLayer {
     
 };
 
+class CuNN;
+
 class CuLayer {
 public:
     CuLayer(){
@@ -62,10 +64,11 @@ public:
     //virtual void wgrad() = 0;
     //virtual void bgrad() = 0;
     virtual void backwardEx() = 0;
+    virtual void applyGradient() = 0;
 
     //virtual Shape GetInputShape() = 0;
     //virtual Shape GetOutputShape() = 0;
-    virtual TensorShape InferOutputShape(TensorShape shape) = 0;
+    virtual void InferOutputShape(TensorShape networkInput) = 0;
     virtual size_t GetWorkspaceSize() = 0;
     virtual size_t GetDeviceSize() = 0;
     virtual void BindWorkspace(void* ptr) = 0;
@@ -74,42 +77,106 @@ public:
     virtual size_t GetActivationSize() = 0;
     virtual float* GetDelta() = 0;
     virtual size_t GetDeltaSize() = 0;
+    virtual void FetchResultToCpu() = 0;
+    virtual void FetchGradToCpu() = 0;
+    virtual void Print() {}
+    virtual void PrintGrad() {}
+    
+    virtual float GetAlpha() { return 1;  }
 
     void AddLayer(CuLayer* layer) {
         this->nexts.push_back(layer);
         layer->prevs.push_back(this);
     }
+    bool IsRoot() const {
+        return prevs.empty();
+    }
+    bool IsTail() const {
+        return nexts.empty();
+    }
+    //used for backward, flag whether this is the first visit in one backward
+    //if it is the first visit, add== false, else make it true
+    bool add = false;
     TensorShape inputShape;
     TensorShape outputShape;
     std::vector<CuLayer*> prevs;
     std::vector<CuLayer*> nexts;
 
-    
+    CuNN* nn = nullptr;
 
     //middle variable
     int visit_count = 0;
     float* prevActivation = nullptr;
 };
 
-class CuLinearLeakyReluLayer :public CuLayer {
+class CuDefaultLayer :public CuLayer {
 public:
     using CuLayer::CuLayer;
-    CuLinearLeakyReluLayer(int input, int output)
-    :in_dim(input)
-    ,out_dim(output){
-        weights = Tensor(output, input); //reverse order to level up computation performance
-        b = Tensor(output);
+    virtual void forward() {}
+    virtual void backwardEx() {};
+    virtual void InferOutputShape(TensorShape networkInput) {
+        this->inputShape = prevs.empty() ? networkInput : prevs[0]->outputShape;
+        outputShape.N = 1;
+        outputShape.C = 1;
+        outputShape.H = 1;
+        outputShape.W = 1;
+        return;
+    };
+    virtual void applyGradient() {
+
     }
+    virtual size_t GetWorkspaceSize() {
+        return 0;
+    };
+    virtual size_t GetDeviceSize() {
+        return 0;
+    }
+    virtual void BindWorkspace(void* ptr) {
+        return ;
+    }
+    virtual void BindDevice(void* ptr) {
+        return ;
+    }
+    virtual float* GetActivation() {
+        return nullptr;
+    }
+    virtual size_t GetActivationSize() { return 0; }
+    virtual float* GetDelta() { return nullptr; }
+    virtual size_t GetDeltaSize() {
+        return 0;
+    }
+    virtual void FetchResultToCpu() {
+        ;
+    }
+    virtual void FetchGradToCpu() {
+        ;
+    }
+};
+
+class CuInputLayer : public CuDefaultLayer {
+public:
+
+};
+
+class CuAddLayer : public CuDefaultLayer {
+public:
+    using CuDefaultLayer::CuDefaultLayer;
+};
+
+class CuLinearLeakyReluLayer :public CuLayer {
+public:
+    CuLinearLeakyReluLayer(int input, int output);
 
     void forward() override;
 
     void backward(const float* delta_next, const float* w_next);
     void backwardEx();
+    void applyGradient();
     void dgrad();
     void wgrad();
     void bgrad();
 
-    TensorShape InferOutputShape(TensorShape shape) override;
+    void InferOutputShape(TensorShape networkInput) override;
     size_t GetWorkspaceSize();
     size_t GetDeviceSize();
     void BindWorkspace(void* ptr);
@@ -119,7 +186,13 @@ public:
     float* GetDelta();
     size_t GetDeltaSize();
     float* GetPrevActivation();
-
+    virtual void Print();
+    virtual void PrintGrad();
+    virtual void FetchResultToCpu();
+    virtual void FetchGradToCpu();
+    float GetAlpha() {
+        return alpha;
+    }
     Tensor& data() {
         return weights;
     }
@@ -137,14 +210,14 @@ public:
     float alpha = 1.0;
 };
 
-class CuSoftmaxCrossEntropyLayer : public CuLayer {
+class CuSoftmaxCrossEntropyLayer : public CuDefaultLayer {
 public:
     CuSoftmaxCrossEntropyLayer(int batchSize) :batchSize(batchSize) {
 
     }
     void forward();
     void backwardEx();
-
+    void applyGradient();
     size_t GetDeviceSize() {
         auto& shape = prevs[0]->outputShape;
         return shape.C * shape.H * shape.W;
@@ -176,11 +249,9 @@ public:
         return shape.C * shape.H * shape.W;
     }
 
-    TensorShape InferOutputShape(TensorShape shape) {
-        assert(false);
-        return TensorShape(1, 1, 1, 1);
-    }
+    void InferOutputShape(TensorShape networkInput);
 
+    Tensor label;
     float* y = nullptr;
     int batchSize = 0;
     //softmax of input
@@ -188,14 +259,16 @@ public:
 
 };
 
-class CuMseLayer :public CuLayer {
+class CuMseLayer :public CuDefaultLayer {
 public:
-    using CuLayer::CuLayer;
+    CuMseLayer(int C);
+    CuMseLayer(int C, int H);
     CuMseLayer(int C, int H, int W);
     void forward();
     void backwardEx();
+    void applyGradient();
 
-    TensorShape InferOutputShape(TensorShape shape);
+    void InferOutputShape(TensorShape shape);
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
     size_t GetDeviceSize();
@@ -204,11 +277,17 @@ public:
     float* GetActivation();
     float* GetDelta();
     size_t GetDeltaSize();
+    void FetchPredYToCpu();
+    void PrintPredY();
+    void FetchResultToCpu();
+    void Print();
 
     Tensor label;
-    float* y = nullptr;
+    float* y_label = nullptr;
     float* p = nullptr;
     float* grad = nullptr;
+    //output
+    Tensor predY;
 };
 
 /********************convolution layer**************************/
@@ -217,7 +296,7 @@ public:
     using CuLayer::CuLayer;
     CuConvolutionLayer(int K, int C, int R, int S);
 
-    TensorShape InferOutputShape(TensorShape shape) override;
+    void InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
     void BindDevice(void* ptr);
@@ -231,10 +310,20 @@ public:
     void backward(const float* delta_next, const float* w_next);
     void dgrad();
     void backwardEx();
+    void applyGradient();
 
     void wgrad();
 
     void bgrad();
+
+    void Print();
+    void PrintGrad();
+    void FetchResultToCpu();
+    void FetchGradToCpu();
+
+    float GetAlpha() {
+        return alpha;
+    }
 
     Tensor& data() {
         return weights;

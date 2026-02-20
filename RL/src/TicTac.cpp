@@ -1,5 +1,5 @@
 #include "TicTac.h"
-#include <random>
+
 
 TicTac TicTac::next_state(int action) const
 {
@@ -210,6 +210,50 @@ CuHead TicTacNNProxy::predict(const TicTac& state) {
 
 }
 
+//build from scratch
+void TicTacNNProxy::createNetwork() {
+    
+
+
+}
+
+void TicTacNNProxy::train(const std::vector<TicTacEntry>& entries) {
+    if (entries.empty()) {
+        return;
+    }
+    Tensor label(entries.size(), entries[0].label.shape[0]);
+    Tensor values(entries.size());
+    Tensor states(entries.size(), entries[0].state.shape[0], entries[0].state.shape[1]);
+    for (int i = 0; i < entries.size(); ++i) {
+        label[i].copy(entries[i].label);
+        values(i) = entries[i].value;
+        states[i].copy(entries[i].state);
+    }
+    policyHead->label = label;
+    valueHead->label = values;
+    
+    cunn->Forward(states);
+    cunn->Backward();
+    cunn->Step();
+}
+
+
+std::vector<TicTacEntry> TicTacReplayBuffer::sample(size_t batch_size)
+{
+    std::vector<TicTacEntry> batch;
+    batch.reserve(batch_size);
+
+    std::uniform_int_distribution<size_t> dist(0, entries.size() - 1);
+    std::mt19937 rng(std::random_device{}());
+
+    for (size_t i = 0; i < batch_size; ++i)
+    {
+        batch.push_back(entries[dist(rng)]);
+    }
+    return batch;
+}
+
+
 void TicTacMcts::backTrace(TicTacNode* node, float value) {
     do {
         value = -value;
@@ -292,8 +336,6 @@ void TicTacMcts::search() {
 }
 
 void TicTacMcts::selfPlay(TicTacReplayBuffer& replay) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     TicTac state = TicTac::initState();
     
     int simulationCount = 100;
@@ -334,16 +376,33 @@ void TicTacMcts::selfPlay(TicTacReplayBuffer& replay) {
 }
 
 void TicTacMcts::train() {
-    const int num_episodes = 1000;
+    const int num_episodes = 100;
+    int trainStepsPerEpisode = 5;
+    int batchSize = 32;
+
     TicTacReplayBuffer buffer;
-    int batch = 10;
     for (int episode = 0; episode < num_episodes; ++episode) {
 
         selfPlay(buffer);
 
-        if (buffer.entries.size() > batch) {
-            //sampe and train
+        if (buffer.entries.size() > batchSize) {
+            for (int k = 0; k < trainStepsPerEpisode; ++k) {
+                //sampe and train
+                auto batch = buffer.sample(batchSize);
+
+                proxy->train(batch);
+            }
+            
         }
     }
     return;
+}
+
+void TicTacMcts::InitRandom() {
+    std::random_device rd;
+    gen.seed(rd());
+}
+
+void TicTacMcts::InitRandom(uint32_t seed) {
+    gen.seed(seed);
 }

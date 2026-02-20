@@ -73,13 +73,14 @@ __global__ void linear_relu_backward_kernel(
 );
 
 __global__ void linear_leaky_relu_backward_kernel(
-    const float* delta_next, // batch x dim_delta_next ¦Ä^{l+1}
-    const float* W_next,     // dim_delta_next x dim_delta W^{l+1}
-    const float* a,          // batch x dim_delta a^l
-    float* delta,            // batch x dim_delta Êä³ö ¦Ä^l
+    const float* delta, // batch x dim_delta_next ¦Ä^{l}
+    const float* W,     // dim_delta_next x dim_delta W^{l}
+    const float* a_prev,          // batch x dim_delta a^(l-1)
+    float* delta_prev,            // batch x dim_delta Êä³ö ¦Ä^(l-1)
+    bool add,
     int batch,
+    int dim_delta_prev,
     int dim_delta,
-    int dim_delta_next,
     float alpha              // LeakyReLU alpha
 );
 
@@ -138,6 +139,7 @@ __global__ void conv_dgrad_kernel(
     const float* W_next,     // KCRS  -> C*KRS W^R^{l+1}
     const float* a,          // NCHW -> C*NHW
     float* delta,            // NCHW -> C*NHW   output: ¦Ä^l
+    bool add,
     int N,
     int C,
     int H, int W, int P, int Q, int R, int S, int strideH, int strideW, int padH, int padW, int K, int alpha

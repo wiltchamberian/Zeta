@@ -46,6 +46,8 @@ public:
 class CuNN
 {
 public:
+    float learningRate = 1.0;
+
     CuNN(float lr = 1.0)
         :learningRate(lr)
         ,deviceMemorySize(0)
@@ -56,6 +58,15 @@ public:
 
     ~CuNN() {
         ReleaseDeviceMemory();
+    }
+
+    template<typename T, typename... Args>
+    T* CreateLayer(Args&&... args)
+    {
+        layers.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+        T* res =  static_cast<T*>(layers.back().get());
+        res->nn = this;
+        return res;
     }
 
     //reset to the state of just created, only keep the learning rate
@@ -69,8 +80,6 @@ public:
 
     void SetLabel(const Tensor& tensor);
 
-    void AddLayer(std::shared_ptr<CuLayer> layer);
-
     TensorShape Build(TensorShape shape);
 
     void AllocDeviceMemory();
@@ -80,7 +89,7 @@ public:
     void Forward(const Tensor& x);
     Tensor ForwardAndFetchPredY(const Tensor& x);
 
-    void Backward(const Tensor& y);
+    void Backward();
 
     void Step();
 
@@ -88,16 +97,14 @@ public:
 
     void FetchResultToCpu();
 
-    void SetHead(std::shared_ptr<CuLayer> l);
-    void SetTail(std::shared_ptr<CuLayer> l);
+    void SetHead(CuLayer* l);
+    void SetTail(CuLayer* l);
 
     float MseLoss(Tensor& xs, Tensor& ys);
 
-    void Train(Tensor& xs, Tensor& ys, int maxEpochs, float tolerance);
-
     void Print();
 
-    void Travel(std::function<void(CuLayer*)> ff);
+    void Travel(std::function<bool(CuLayer*)> ff);
 
     void TravelBackward(std::function<void(CuLayer*)> ff);
 
@@ -112,10 +119,10 @@ protected:
     Tensor input;
     Tensor label;
 
-    std::shared_ptr<CuLayer> head = nullptr;
-    std::shared_ptr<CuLayer> tail = nullptr;//to loss
-    std::vector<std::shared_ptr<CuLayer>> layers;
-    float learningRate = 1.0;
+    CuLayer* head = nullptr;
+    CuLayer* tail = nullptr;//to loss
+    std::vector<std::unique_ptr<CuLayer>> layers;
+    
 
 
     //device memory manager, all used memory use one buffer....

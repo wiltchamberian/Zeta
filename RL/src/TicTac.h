@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <random>
 #include "CuNN.h"
 
 struct Action {
@@ -107,22 +108,31 @@ public:
     std::vector<float> getPolicyDistribution(float);
 };
 
-class TicTacNNProxy {
-public:
-    CuNN* cunn = nullptr;
-
-    CuHead predict(const TicTac& state);
-};
-
 struct TicTacEntry {
     Tensor label;
     Tensor state;
     float value;
 };
 
+class TicTacNNProxy {
+public:
+    std::unique_ptr<CuNN> cunn = nullptr;
+
+    CuHead predict(const TicTac& state);
+
+    void createNetwork();
+    void train(const std::vector<TicTacEntry>& entries);
+
+    CuLayer* root = nullptr;
+    CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
+    CuMseLayer* valueHead = nullptr;
+};
+
 class TicTacReplayBuffer {
 public:
     std::vector<TicTacEntry> entries;
+
+    std::vector<TicTacEntry> sample(size_t batch_size);
 };
 
 class TicTacMcts {
@@ -136,5 +146,10 @@ public:
     //Ò»´ÎÑµÁ·
     void train();
 
+    void InitRandom();
+    void InitRandom(uint32_t seed);
+
     TicTacNNProxy* proxy = nullptr;
+
+    std::mt19937 gen;
 };

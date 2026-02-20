@@ -9,38 +9,54 @@ void test_cnn_linear() {
     network.SetLearningRate(0.1);
 
     // 第一层 2 -> 2
-    std::unique_ptr<CuLinearLeakyReluLayer> layer1 = std::make_unique<CuLinearLeakyReluLayer>(2, 2);
+    CuLinearLeakyReluLayer* layer1 = network.CreateLayer<CuLinearLeakyReluLayer>(2, 2);
     layer1->weights(0, 0) = 0.1;
     layer1->weights(0, 1) = 0.2;
     layer1->weights(1, 0) = 0.3;
     layer1->weights(1, 1) = 0.4;
     layer1->b(0) = 0.5;
     layer1->b(1) = 0.6;
-    network.AddLayer(std::move(layer1));
+    layer1->alpha = 0;
 
     // 第二层 2 -> 1
-    std::unique_ptr<CuLinearLeakyReluLayer> layer2 = std::make_unique<CuLinearLeakyReluLayer>(2, 1);
+    CuLinearLeakyReluLayer* layer2 = network.CreateLayer<CuLinearLeakyReluLayer>(2, 1);
     layer2->weights(0, 0) = 0.7;
     layer2->weights(0, 1) = 0.8;
     layer2->b(0) = 0.9;
-    network.AddLayer(std::move(layer2));
+    
+    layer1->AddLayer(layer2);
+
+    
+
+    CuMseLayer* mse = network.CreateLayer<CuMseLayer>(1);
+    mse->label(0) = 1.0;
+    layer2->AddLayer(mse);
 
     network.Print();
 
-    // --- 样本输入，与 PyTorch 一致 ---
     Tensor xs(1, 2);
     xs(0, 0) = -100.0;
     xs(0, 1) = 2.0;
-    Tensor ys(1, 1);
-    ys(0, 0) = 1.0;
-
     TensorShape sp;
     sp.N = 1;
     sp.C = 2;
     network.Build(sp);
 
-    network.Backward(ys);
+    
+    network.Forward(xs);
+
+    mse->FetchPredYToCpu();
+    mse->PrintPredY();
+
+
+    network.Backward();
+    network.FetchGrad();
+    network.PrintGrad();
+
+
     network.Step();
+
+    
 
     network.FetchResultToCpu();
 
@@ -64,29 +80,33 @@ void test_cnn_conv() {
    
 
     //layer
-    auto c1 = std::make_shared<CuConvolutionLayer>(8, 2, 3, 3);
+    auto c1 = network.CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
     c1->alpha = 0.1;
     network.SetHead(c1);
 
-    auto c2 = std::make_shared<CuConvolutionLayer>(4, 8, 3, 3);
+    auto c2 = network.CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
     c2->alpha = 0.1;
-    c1->AddLayer(c2.get());
+    c1->AddLayer(c2);
 
     //1d conv
-    auto c3 = std::make_shared<CuConvolutionLayer>(1, 4, 3, 3);
+    auto c3 = network.CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
     c3->alpha = 0.1;
-    c2->AddLayer(c3.get());
+    c2->AddLayer(c3);
 
-    auto fully1 = std::make_shared<CuLinearLeakyReluLayer>(9, 9);
-    auto cross = std::make_shared<CuSoftmaxCrossEntropyLayer>(batchSize);
-    fully1->AddLayer(cross.get());
+    auto fully1 = network.CreateLayer<CuLinearLeakyReluLayer>(9, 9);
+    auto cross = network.CreateLayer<CuSoftmaxCrossEntropyLayer>(batchSize);
+    fully1->AddLayer(cross);
 
-    auto fully2 = std::make_shared<CuLinearLeakyReluLayer>(9, 1);
-    auto c4 = std::make_shared<CuMseLayer>(1,1,1);
-    fully2->AddLayer(c4.get());
+    auto fully2 = network.CreateLayer<CuLinearLeakyReluLayer>(9, 1);
+    auto mse = network.CreateLayer<CuMseLayer>(1,1,1);
+    fully2->AddLayer(mse);
 
-    c3->AddLayer(fully1.get());
-    c3->AddLayer(fully2.get());
+    c3->AddLayer(fully1);
+    c3->AddLayer(fully2);
+
+    auto tail = network.CreateLayer<CuAddLayer>();
+    cross->AddLayer(tail);
+
 
     //input
     int H = 4;
@@ -104,11 +124,11 @@ void test_cnn_conv() {
     TensorShape outShape = network.Build(shape);
 
     //output
-    Tensor label(1, 2, outShape.H, outShape.W);
+    //Tensor label(1, 2, outShape.H, outShape.W);
     Tensor predY = network.ForwardAndFetchPredY(convX);
     std::cout << "predY:\n";
     predY.print("y");
-    network.Backward(label);
+    network.Backward();
 
     network.FetchGrad();
     network.PrintGrad();

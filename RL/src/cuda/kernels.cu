@@ -83,21 +83,20 @@ __global__ void mse_loss_kernel(
     if (i >= batch || j >= out_dim) return;
 
     int idx = i * out_dim + j;
-    //TODO !! FIXE !!! PAY ATTENTION !! here needs to divide by feature size!!!?!!!
-    //delta[idx] = (a[idx] - y[idx]);
-    // 
+    //here needs to divide by feature size!!!!
     delta[idx] = (a[idx] - y[idx]) * 2 / (batch * out_dim);
 }
 
-//(BP2) ¦Ä^l = (¦Ä^{l+1} ¡¤ W^{l+1}) ¡Ñ ¦Ò'(z^l)
+//(BP2) ¦Ä^(l-1) = (¦Ä^{l} ¡¤ W^{l}) ¡Ñ ¦Ò'(z^(l-1))
 __global__ void linear_leaky_relu_backward_kernel(
-    const float* delta_next, // batch x dim_delta_next ¦Ä^{l+1}
-    const float* W_next,     // dim_delta_next x dim_delta W^{l+1}
-    const float* a,          // batch x dim_delta a^l
-    float* delta,            // batch x dim_delta Êä³ö ¦Ä^l
+    const float* delta, // batch * dim_delta ¦Ä^{l}
+    const float* W,     // dim_delta * dim_delta_prev W^{l}
+    const float* a_prev,          // batch * dim_delta_prev a^(l-1)
+    float* delta_prev,            // batch x dim_delta_prev Êä³ö ¦Ä^(l-1)
+    bool add,
     int batch,
+    int dim_delta_prev,
     int dim_delta,
-    int dim_delta_next,
     float alpha              // LeakyReLU alpha
 ) {
     int ty = threadIdx.y;
@@ -110,17 +109,17 @@ __global__ void linear_leaky_relu_backward_kernel(
     __shared__ float sh_B[TILE_WIDTH][TILE_WIDTH];
 
     float value = 0.0;
-    int phaseCount = (dim_delta_next + TILE_WIDTH - 1) / TILE_WIDTH;
+    int phaseCount = (dim_delta + TILE_WIDTH - 1) / TILE_WIDTH;
 
     for (int phase = 0; phase < phaseCount; phase++)
     {
         int A_y = i;
         int A_x = phase * TILE_WIDTH + tx;
-        sh_A[ty][tx] = (A_y < batch && A_x < dim_delta_next) ? delta_next[A_y * dim_delta_next + A_x] : 0.0;
+        sh_A[ty][tx] = (A_y < batch && A_x < dim_delta) ? delta[A_y * dim_delta + A_x] : 0.0;
 
         int B_x = j;
         int B_y = phase * TILE_WIDTH + ty;
-        sh_B[ty][tx] = (B_y < dim_delta_next && B_x < dim_delta) ? W_next[B_y * dim_delta + B_x] : 0.0;
+        sh_B[ty][tx] = (B_y < dim_delta && B_x < dim_delta) ? W[B_y * dim_delta + B_x] : 0.0;
 
         __syncthreads();
 
@@ -131,11 +130,18 @@ __global__ void linear_leaky_relu_backward_kernel(
         __syncthreads();
     }
 
-    if (i >= batch || j >= dim_delta) return;
+    if (i >= batch || j >= dim_delta_prev) return;
 
     // Fused LeakyReLU backward
-    float der = a[i * dim_delta + j] > 0.0 ? 1.0 : alpha;
-    delta[i * dim_delta + j] = value * der;
+    float der = a_prev[i * dim_delta_prev + j] > 0.0 ? 1.0 : alpha;
+
+    if (add) {
+        delta_prev[i * dim_delta_prev + j] += (value * der);
+    }
+    else {
+        delta_prev[i * dim_delta_prev + j] = value * der;
+    }
+    
 }
 
 
@@ -198,8 +204,8 @@ __global__ void compute_grad_w_kernel(
 
 //BP3
 __global__ void compute_grad_b_kernel(
-    const float* delta,  // batch x dim_delta
-    float* grad_b,       // outdim_delta_dim
+    const float* delta,  // batch * dim_delta
+    float* grad_b,       // outdim * delta_dim
     int batch,
     int dim_delta
 ) {
@@ -452,6 +458,7 @@ __global__ void conv_dgrad_kernel(
     const float* W_next,     // KCRS  -> C*KRS W^R^{l+1}
     const float* a,          // NCHW -> C*NHW
     float* delta,            // NCHW -> C*NHW   output: ¦Ä^l
+    bool add,
     int N,
     int C,
     int H, int W, int P, int Q, int R, int S, int strideH, int strideW, int padH, int padW, int K, int alpha
@@ -536,8 +543,14 @@ __global__ void conv_dgrad_kernel(
 
     int n = j / HW;
     int hw = j % HW;
-    delta[n * C * HW + c * HW + hw] = a[n * C*HW+c*HW + hw] > 0 ? value : (value*alpha);
 
+    if (add) {
+        delta[n * C * HW + c * HW + hw] += ( a[n * C * HW + c * HW + hw] > 0 ? value : (value * alpha));
+    }
+    else {
+        delta[n * C * HW + c * HW + hw] = a[n * C * HW + c * HW + hw] > 0 ? value : (value * alpha);
+    }
+    
 }
 
 __global__ void conv_bgrad_test(

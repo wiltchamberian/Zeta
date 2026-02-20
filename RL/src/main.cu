@@ -6,6 +6,7 @@
 #include "test.h"
 #include "cu_tool.h"
 #include "cnn_test.h"
+#include "TicTac.h"
 
 int main()
 {
@@ -16,6 +17,11 @@ int main()
     //test_cnn_linear();
     test_cnn_conv();
 
+    std::unique_ptr<TicTacNNProxy> proxy = std::make_unique<TicTacNNProxy>();
+    proxy->createNetwork();
+    TicTacMcts mcts;
+    mcts.proxy = proxy.get();
+    mcts.train();
 
     return 0;
 }
