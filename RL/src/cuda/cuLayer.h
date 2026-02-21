@@ -166,7 +166,7 @@ public:
 class CuLinearLeakyReluLayer :public CuLayer {
 public:
     CuLinearLeakyReluLayer(int input, int output);
-
+    void RandomParameters();
     void forward() override;
 
     void backward(const float* delta_next, const float* w_next);
@@ -190,6 +190,8 @@ public:
     virtual void PrintGrad();
     virtual void FetchResultToCpu();
     virtual void FetchGradToCpu();
+    void FetchActivationToCpu();
+    void PrintDelta();
     float GetAlpha() {
         return alpha;
     }
@@ -208,26 +210,23 @@ public:
 
     DeviceLayer dl;
     float alpha = 1.0;
+
+    Tensor ac;
 };
 
 class CuSoftmaxCrossEntropyLayer : public CuDefaultLayer {
 public:
-    CuSoftmaxCrossEntropyLayer(int batchSize) :batchSize(batchSize) {
-
+    CuSoftmaxCrossEntropyLayer() /*:batchSize(0)*/ {
     }
     void forward();
     void backwardEx();
     void applyGradient();
-    size_t GetDeviceSize() {
-        auto& shape = prevs[0]->outputShape;
-        return shape.C * shape.H * shape.W;
-    }
-    void BindWorkspace(void* ptr) {
-        activation = reinterpret_cast<float*>(ptr);
-    }
-    void BindDevice(void* ptr) {
-        y = reinterpret_cast<float*>(ptr);
-    }
+    void BindLabelToDevice();
+    void BindWorkspace(void* ptr);
+    size_t GetWorkspaceSize();
+    void BindDevice(void* ptr);
+    size_t GetDeviceSize();
+
     float* GetActivation() {
         return activation;
     }
@@ -244,23 +243,25 @@ public:
         return 0;
     }
 
-    size_t GetWorkspaceSize() {
-        auto& shape = prevs[0]->outputShape;
-        return shape.C * shape.H * shape.W;
-    }
-
     void InferOutputShape(TensorShape networkInput);
+
+    void FetchPredYToCpu();
+    void PrintPredY();
+    void FetchActivationToCpu();
 
     Tensor label;
     float* y = nullptr;
-    int batchSize = 0;
+    //int batchSize = 0;
     //softmax of input
     float* activation = nullptr;
 
+    //
+    Tensor distribution;
 };
 
 class CuMseLayer :public CuDefaultLayer {
 public:
+    CuMseLayer();
     CuMseLayer(int C);
     CuMseLayer(int C, int H);
     CuMseLayer(int C, int H, int W);
@@ -269,6 +270,7 @@ public:
     void applyGradient();
 
     void InferOutputShape(TensorShape shape);
+    void BindLabelToDevice();
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
     size_t GetDeviceSize();
@@ -295,7 +297,7 @@ class CuConvolutionLayer :public CuLayer {
 public:
     using CuLayer::CuLayer;
     CuConvolutionLayer(int K, int C, int R, int S);
-
+    void RandomParameters();
     void InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
@@ -316,10 +318,12 @@ public:
 
     void bgrad();
 
+    void PrintDelta();
     void Print();
     void PrintGrad();
     void FetchResultToCpu();
     void FetchGradToCpu();
+    void FetchActivationToCpu();
 
     float GetAlpha() {
         return alpha;
@@ -334,6 +338,8 @@ public:
 
     Tensor weights_grad;
     Tensor bias_grad;
+
+    Tensor ac;
 
     int in_dim;
     int out_dim;

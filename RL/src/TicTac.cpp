@@ -22,7 +22,7 @@ TicTac TicTac::next_state(int action) const
         }
         if (s.board[i] == 0) {
             if (targetRover == targetId) {
-                s.board[i] = playerId;
+                s.board[i] = player;
                 count += 1;
             }
             targetRover++;
@@ -188,10 +188,15 @@ CuHead TicTacNNProxy::predict(const TicTac& state) {
     CuHead head;
     Tensor input = state.Encode();
 
-    Tensor result = cunn->ForwardAndFetchPredY(input);
+    nn->Forward(input);
+    policyHead->FetchActivationToCpu();
+    Tensor& result = policyHead->distribution;
+    valueHead->FetchPredYToCpu();
+    Tensor& value = valueHead->predY;
 
     std::vector<int> legalActions = state.legalActions();
     
+    head.value = value(0,0);
     for (int i = 0; i < legalActions.size(); ++i) {
         head.policy.push_back(result(0,legalActions[i]));
     }
@@ -212,9 +217,53 @@ CuHead TicTacNNProxy::predict(const TicTac& state) {
 
 //build from scratch
 void TicTacNNProxy::createNetwork() {
-    
 
+    nn = std::make_unique<CuNN>();
+    nn->SetLearningRate(0.01);
 
+    //layer
+    auto c1 = nn->CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
+    c1->alpha = 0.0;
+    c1->RandomParameters();
+    root = c1;
+
+    auto c2 = nn->CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
+    c2->alpha = 0.0;
+    c2->RandomParameters();
+    c1->AddLayer(c2);
+
+    //1d conv
+    auto c3 = nn->CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
+    c3->alpha = 0.0;
+    c3->RandomParameters();
+    c2->AddLayer(c3);
+
+    auto fully1 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 9);
+    fully1->RandomParameters();
+    fully1->alpha = 0;
+
+    auto cross = nn->CreateLayer<CuSoftmaxCrossEntropyLayer>();
+    fully1->AddLayer(cross);
+
+    auto fully2 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 1);
+    fully2->alpha = 0;
+    fully2->RandomParameters();
+
+    auto mse = nn->CreateLayer<CuMseLayer>();
+
+    fully2->AddLayer(mse);
+
+    c3->AddLayer(fully1);
+    c3->AddLayer(fully2);
+
+    auto tail = nn->CreateLayer<CuAddLayer>();
+    cross->AddLayer(tail);
+    mse->AddLayer(tail);
+
+    policyHead = cross;
+    valueHead = mse;
+
+    nn->AllocDeviceMemory();
 }
 
 void TicTacNNProxy::train(const std::vector<TicTacEntry>& entries) {
@@ -231,10 +280,11 @@ void TicTacNNProxy::train(const std::vector<TicTacEntry>& entries) {
     }
     policyHead->label = label;
     valueHead->label = values;
-    
-    cunn->Forward(states);
-    cunn->Backward();
-    cunn->Step();
+    policyHead->BindLabelToDevice();
+    valueHead->BindLabelToDevice();
+    nn->Forward(states);
+    nn->Backward();
+    nn->Step();
 }
 
 
@@ -255,18 +305,17 @@ std::vector<TicTacEntry> TicTacReplayBuffer::sample(size_t batch_size)
 
 
 void TicTacMcts::backTrace(TicTacNode* node, float value) {
-    do {
+    while (node->parent != nullptr) {
         value = -value;
         node->parentEdge->W += value;
         node = node->parent;
-    } while (node->parent != nullptr);
-    //
+    }
 }
 
 
 float TicTacMcts::simulate(TicTacNode* root) {
 
-    float c_puct = 0.5;
+    float c_puct = 1.0;
 
     if (root->state.is_terminal())
         return root->state.terminal_value();
@@ -290,7 +339,7 @@ float TicTacMcts::simulate(TicTacNode* root) {
                 cur->children[i]->parent = cur;
                 cur->children[i]->parentEdge = edge.get();
 
-                cur->edges.push_back(std::move(std::make_unique<TicTacEdge>(actions[i], head.policy[i])));
+                cur->edges.push_back(std::move(edge));
             }
 
             backTrace(cur, head.value);

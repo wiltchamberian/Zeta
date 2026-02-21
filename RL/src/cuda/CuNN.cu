@@ -82,12 +82,6 @@ void CuNN::AllocWorkSpaceIfNeeded() {
         return false;
         });
 
-    // 输出层 label 和 loss
-    //int out_dim = layers.back()->outputShape.Dim();
-    //total += batchSize * out_dim * sizeof(float); // 标签 y
-    //total += batchSize * sizeof(float);           // 每个样本 loss
-    //total += sizeof(float);                   // 总 loss
-
     size_t bytes = total * sizeof(float);
 
     // 2️⃣ 如果已有 workspace 内存够用就直接返回
@@ -119,22 +113,42 @@ void CuNN::AllocWorkSpaceIfNeeded() {
         return false;
     });
 
-    //// 标签 y
-    //ws.y = reinterpret_cast<float*>(addr);
-    //addr += batchSize * out_dim * sizeof(float);
-
-    //// 每个样本 loss
-    //ws.loss_vec = reinterpret_cast<float*>(addr);
-    //addr += batchSize * sizeof(float);
-
-    //// 总 loss
-    //ws.loss = reinterpret_cast<float*>(addr);
 }
 
 
 void CuNN::Forward(const Tensor& x) {
     //record shape of x, check legal
     input = x;
+    batchSize = x.shape[0];
+
+    TensorShape ts;
+    int rk = x.rank();
+    if (rk == 1) {
+        ts.N = x.shape[0];
+    }
+    else if (rk == 2) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+    }
+    else if (rk == 3) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+        ts.H = x.shape[2];
+    }
+    else if (rk == 4) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+        ts.H = x.shape[2];
+        ts.W = x.shape[3];
+    }
+    else {
+        assert(false);
+    }
+    
+    Travel([ts](CuLayer* l)->bool {
+        l->InferOutputShape(ts);
+        return false;
+        });
 
     AllocWorkSpaceIfNeeded();
 
@@ -241,24 +255,7 @@ void CuNN::TravelBackward(std::function<void(CuLayer*)> func) {
 
 }
 
-Tensor CuNN::ForwardAndFetchPredY(const Tensor& x) {
-    Forward(x);
-    // 3️⃣ 返回最后一层 activations (host 端 Tensor)
-    TensorShape sp = layers.back()->outputShape;
-    Shape shape({sp.N, sp.C, sp.H, sp.W});
-
-    Tensor output(shape);
-    //CUDA_CHECK(cudaMemcpy((void*)output.data(), layers.back()->dl.activation, output.numel() * sizeof(float), cudaMemcpyDeviceToHost));
-
-    return output;
-
-}
-
-
 void CuNN::Backward() {
-    // 1️⃣ 确保 workspace 足够大
-    AllocWorkSpaceIfNeeded();
-
     TravelBackward([](CuLayer* layer) {
         layer->backwardEx();
         });

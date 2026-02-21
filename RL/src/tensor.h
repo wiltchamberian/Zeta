@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <iostream>
 #include <variant>
+#include <functional>
 
 using Index = int;
 
@@ -225,6 +226,11 @@ public:
     template<typename... Dims>
     void zeros(Dims... dims) {
         shape = Shape{ static_cast<Index>(dims)... };
+        initData();
+    }
+
+    void zeros(const Shape& shape) {
+        this->shape = shape;
         initData();
     }
 
@@ -781,7 +787,7 @@ public:
                 pos_this += idx[i] * stride[i];
                 std::cout << idx[i] << ((i == R - 1) ? "":",");
             }
-            std::cout << "=" << std::fixed << std::setprecision(3)<< (*data_)[pos_this] <<" ";
+            std::cout << "=" << std::fixed << std::setprecision(4)<< (*data_)[pos_this] <<" ";
 
             // 多维索引进位
             for (int d = R - 1; d >= 0; --d) {
@@ -792,6 +798,41 @@ public:
         }
         std::cout << std::endl;
       
+    }
+
+    void print_torch_style(std::string prefix = "") const {
+        size_t R = rank();
+        std::vector<Index> idx(R, 0); // 多维索引
+
+        std::function<void(size_t, size_t, std::vector<Index>&, int)> print_dim;
+        print_dim = [&](size_t dim, size_t offset_curr, std::vector<Index>& idx, int indent) {
+            std::string indent_str(indent * 2, ' ');
+            std::cout << indent_str << "[";
+            size_t N = shape[dim];
+            for (size_t i = 0; i < N; ++i) {
+                idx[dim] = i;
+                size_t pos = offset_curr + i * stride[dim];
+                if (dim + 1 < R) {
+                    std::cout << "\n";
+                    print_dim(dim + 1, pos, idx, indent + 1);
+                    if (i != N - 1) std::cout << ",";
+                }
+                else {
+                    std::cout << std::fixed << std::setprecision(4) << (*data_)[pos];
+                    if (i != N - 1) std::cout << ", ";
+                }
+            }
+            std::cout << "]";
+            };
+
+        std::cout << prefix;
+        if (R == 0) {
+            std::cout << (*data_)[offset]; // scalar
+        }
+        else {
+            print_dim(0, offset, idx, 0);
+        }
+        std::cout << std::endl;
     }
 
     Shape shape;

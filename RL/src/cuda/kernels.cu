@@ -119,7 +119,7 @@ __global__ void linear_leaky_relu_backward_kernel(
 
         int B_x = j;
         int B_y = phase * TILE_WIDTH + ty;
-        sh_B[ty][tx] = (B_y < dim_delta && B_x < dim_delta) ? W[B_y * dim_delta + B_x] : 0.0;
+        sh_B[ty][tx] = (B_y < dim_delta && B_x < dim_delta_prev) ? W[B_y * dim_delta_prev + B_x] : 0.0;
 
         __syncthreads();
 

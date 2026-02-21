@@ -1,5 +1,6 @@
 #include "cuLayer.h"
 #include "kernels.h"
+#include <random>
 #include <cudnn.h>
 #include "cu_tool.h"
 #include "device_launch_parameters.h"
@@ -11,6 +12,19 @@ CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
     , out_dim(output) {
     weights = Tensor(output, input); //reverse order to level up computation performance
     b = Tensor(output);
+}
+
+void CuLinearLeakyReluLayer::RandomParameters() {
+    //He/Kaiming
+    std::default_random_engine generator;
+    int fan_in = weights.shape[0];   //input neural network
+    float stddev = std::sqrt(2.0f / fan_in);
+    std::normal_distribution<float> distribution(0.0f, stddev);
+    for (int i = 0; i < weights.shape[0]; ++i) {
+        for (int j = 0; j < weights.shape[1]; ++j) {
+            weights(i,j) = distribution(generator);
+        }
+    }
 }
 
 void CuLinearLeakyReluLayer::forward() { /* kernel launch */
@@ -91,6 +105,13 @@ void CuLinearLeakyReluLayer::dgrad() {
         prevs[0]->GetAlpha()   //must use prev's alpha, pay attention
         );
     prevs[0]->add = true;
+
+    float delta[16];
+    cudaMemcpy(delta, dl.delta, dim_delta * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    float prevAc[16];
+    cudaMemcpy(prevAc, prev_activation, dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    float test[16];
+    cudaMemcpy(test, prevs[0]->GetDelta(), dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
 void CuLinearLeakyReluLayer::wgrad() {
@@ -208,7 +229,8 @@ float* CuLinearLeakyReluLayer::GetActivation() {
 }
 
 size_t CuLinearLeakyReluLayer::GetActivationSize() {
-    return dl.b_size;
+    //return dl.b_size;
+    return outputShape.NumElements();
 }
 
 float* CuLinearLeakyReluLayer::GetDelta() {
@@ -216,7 +238,8 @@ float* CuLinearLeakyReluLayer::GetDelta() {
 }
 
 size_t CuLinearLeakyReluLayer::GetDeltaSize() {
-    return dl.b_size;
+    //return dl.b_size;
+    return outputShape.NumElements();
 }
 
 float* CuLinearLeakyReluLayer::GetPrevActivation() {
@@ -259,6 +282,17 @@ void CuLinearLeakyReluLayer::FetchGradToCpu() {
     CUDA_CHECK(cudaMemcpy(bias_grad.data(), dl.grad_b, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
+void CuLinearLeakyReluLayer::FetchActivationToCpu() {
+    ac.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
+    CUDA_CHECK(cudaMemcpy( ac.data(), dl.activation, outputShape.NumElements()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+}
+
+void CuLinearLeakyReluLayer::PrintDelta() {
+    Tensor delta(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
+    cudaMemcpy(delta.data(), dl.delta, outputShape.NumElements()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+
+}
+
 /// <summary>
 /// SoftmaxEntropyLayer
 /// </summary>
@@ -266,36 +300,92 @@ void CuSoftmaxCrossEntropyLayer::forward() {
     assert(!prevs.empty());
     constexpr int BLOCK = 1024;
     int M = prevs[0]->GetActivationSize();
+    int batchSize = nn->batchSize;
     float* prev_activation = prevs[0]->GetActivation();
     softmax_forward_kernel<<<batchSize, BLOCK >> > (prev_activation, activation,M);
+
+    //TEST, FIX ME, TODO
+    //float dd[16];
+    //CUDA_CHECK(cudaMemcpy(dd, prev_activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    //distribution.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
+    //CUDA_CHECK(cudaMemcpy(distribution.data(), activation, outputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
 void CuSoftmaxCrossEntropyLayer::backwardEx() {
     assert(!prevs.empty());
     int M = prevs[0]->GetActivationSize();
+    int batchSize = label.shape[0];
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((M+TILE_WIDTH-1)/TILE_WIDTH, (batchSize + TILE_WIDTH - 1) / TILE_WIDTH);
     softmax_backward_kernel << <grid, block >> > (y, activation,prevs[0]->GetDelta(), batchSize, M);
+
+    //TEST TODO
+    //float dd[16];
+    //cudaMemcpy(dd, prevs[0]->GetDelta(), M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+   
 }
 
 void CuSoftmaxCrossEntropyLayer::applyGradient() {
 
 }
 
+void CuSoftmaxCrossEntropyLayer::BindLabelToDevice() {
+    if (y != nullptr) {
+        CUDA_CHECK(cudaMemcpy(y, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+    }
+}
+
+void CuSoftmaxCrossEntropyLayer::BindWorkspace(void* ptr) {
+    activation = reinterpret_cast<float*>(ptr);
+
+    y = reinterpret_cast<float*>(ptr);
+    CUDA_CHECK(cudaMemcpy(y, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+}
+
+size_t CuSoftmaxCrossEntropyLayer::GetWorkspaceSize() {
+    //for label-y and activation
+    return prevs[0]->outputShape.NumElements() * 2;
+}
+
+void CuSoftmaxCrossEntropyLayer::BindDevice(void* ptr) {
+    
+}
+
+size_t CuSoftmaxCrossEntropyLayer::GetDeviceSize() {
+    return 0;
+}
+
 void CuSoftmaxCrossEntropyLayer::InferOutputShape(TensorShape networkInput) {
     TensorShape shape = prevs.empty() ? networkInput : prevs[0]->outputShape;
     TensorShape result;
-    result.N = 1;
-    result.C = 1;
-    result.H = 1;
-    result.W = 1;
+    result.N = shape.N;
+    result.C = shape.C;
+    result.H = shape.H;
+    result.W = shape.W;
 
     this->inputShape = shape;
     this->outputShape = result;
     return;
 }
 
+void CuSoftmaxCrossEntropyLayer::FetchPredYToCpu() {
+  
+}
+
+void CuSoftmaxCrossEntropyLayer::PrintPredY() {
+
+}
+
+void CuSoftmaxCrossEntropyLayer::FetchActivationToCpu() {
+    distribution.zeros(outputShape.N, outputShape.C * outputShape.H *  outputShape.W);
+    CUDA_CHECK(cudaMemcpy(distribution.data(), activation, outputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+}
+
 /************************************************/
+CuMseLayer::CuMseLayer() {
+
+}
+
 CuMseLayer::CuMseLayer(int C) {
     label = Tensor(C);
 }
@@ -331,13 +421,6 @@ void CuMseLayer::backwardEx() {
         batch,
         out_dim
         );
-
-    //test
-    cudaDeviceSynchronize();
-    std::vector<float> test(10);
-    cudaMemcpy(test.data()+1, prev->GetActivation(), 4, cudaMemcpyKind::cudaMemcpyDeviceToHost);
-    cudaMemcpy(test.data()+2, y_label, 4, cudaMemcpyKind::cudaMemcpyDeviceToHost);
-    cudaMemcpy(test.data(), prev->GetDelta(), 4, cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
 void CuMseLayer::applyGradient() {
@@ -356,10 +439,17 @@ void CuMseLayer::InferOutputShape(TensorShape networkInput) {
     return;
 }
 
+void CuMseLayer::BindLabelToDevice() {
+    if (y_label != nullptr) {
+        CUDA_CHECK(cudaMemcpy(y_label, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+    }
+}
+
 size_t CuMseLayer::GetWorkspaceSize() {
     //for softmax result p (a)
     //and crossEntropy p - label (dL/dp)
-    return label.numel() *  2;
+    //label-y
+    return label.numel() *  3;
 }
 
 void CuMseLayer::BindWorkspace(void* pointer) {
@@ -367,17 +457,19 @@ void CuMseLayer::BindWorkspace(void* pointer) {
     p = ptr;
     ptr += label.numel();
     grad = ptr;
+    ptr += label.numel();
+    y_label = reinterpret_cast<float*>(ptr);
+    CUDA_CHECK(cudaMemcpy(y_label, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+
     return;
 }
 
 size_t CuMseLayer::GetDeviceSize() {
-    //for label
-    return label.numel();
+    return 0;
 }
 
 void CuMseLayer::BindDevice(void* ptr) {
-    y_label = reinterpret_cast<float*>(ptr);
-    CUDA_CHECK(cudaMemcpy(y_label, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+    
 }
 
 size_t CuMseLayer::GetActivationSize() {
@@ -426,6 +518,24 @@ CuConvolutionLayer::CuConvolutionLayer(int K, int C, int R, int S)
 {
     weights = Tensor(K, C, R, S);
     b = Tensor(K);
+    dl.w_size = K * C * R * S;
+    dl.b_size = K;
+}
+
+void CuConvolutionLayer::RandomParameters() {
+    //He/Kaiming initialize
+    int fan_in = weights.shape[2] * weights.shape[3] * weights.shape[1];
+    std::default_random_engine generator;
+    std::normal_distribution<float> distribution(0.0, sqrt(2.0 / fan_in));
+    for (int i = 0; i < weights.shape[0]; ++i) {
+        for (int j = 0; j < weights.shape[1]; ++j) {
+            for (int k = 0; k < weights.shape[2]; ++k) {
+                for (int l = 0; l < weights.shape[3]; ++l) {
+                    weights(i, j, k, l) = distribution(generator);
+                }
+            }
+        }
+    }
 }
 
 void CuConvolutionLayer::InferOutputShape(TensorShape networkInput) {
@@ -475,15 +585,15 @@ void CuConvolutionLayer::BindDevice(void* ptr) {
     addr += w_size * sizeof(float);
 
     // -------- bias --------
-    Tensor b = b.contiguous();
-    size_t b_size = b.numel();
+    Tensor bias = b.contiguous();
+    size_t b_size = bias.numel();
     dl.bias = reinterpret_cast<float*>(addr);
     dl.b_size = b_size;
 
     if (b.data()) {
         CUDA_CHECK(cudaMemcpy(
             dl.bias,
-            b.data(),
+            bias.data(),
             b_size * sizeof(float),
             cudaMemcpyHostToDevice
         ));
@@ -513,7 +623,8 @@ size_t CuConvolutionLayer::GetDeviceSize() {
 }
 
 size_t CuConvolutionLayer::GetActivationSize() { 
-    return dl.b_size;
+    //return dl.b_size;
+    return outputShape.NumElements();
 }
 
 float* CuConvolutionLayer::GetActivation() {
@@ -711,31 +822,49 @@ void CuConvolutionLayer::bgrad() {
     //    );
 }
 
+void CuConvolutionLayer::PrintDelta() {
+
+    Tensor tensor(outputShape.N,outputShape.C,outputShape.H,outputShape.W);
+    cudaMemcpy(tensor.data(), dl.delta, outputShape.NumElements() * sizeof(float), cudaMemcpyDeviceToHost);
+}
+
 void CuConvolutionLayer::Print() {
     std::cout << "weights:\n";
-    weights.print("W_");
+    //weights.print("W_");
+    weights.print_torch_style();
     std::cout << "biases:\n";
-    b.print("B_");
+    //b.print("B_");
+    b.print_torch_style();
     std::cout << std::endl;
 }
 
 void CuConvolutionLayer::PrintGrad() {
+    //std::cout << "weights_grad:\n";
+    //weights_grad.print("W_");
+    //std::cout << "bias_grad:\n";
+    //bias_grad.print("B_");
+
     std::cout << "weights_grad:\n";
-    weights_grad.print("W_");
+    weights_grad.print_torch_style();
     std::cout << "bias_grad:\n";
-    bias_grad.print("B_");
+    bias_grad.print_torch_style();
 }
 
 void CuConvolutionLayer::FetchResultToCpu() {
-    weights.zeros(dl.b_size, dl.in_dim);
-    b.zeros(dl.b_size);
+    weights.zeros(weights.shape);
+    b.zeros(b.shape);
     CUDA_CHECK(cudaMemcpy(weights.data(), dl.weights, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(b.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
 void CuConvolutionLayer::FetchGradToCpu() {
-    weights_grad.zeros(dl.b_size, dl.in_dim);
-    bias_grad.zeros(dl.b_size);
+    weights_grad.zeros(weights.shape);
+    bias_grad.zeros(b.shape);
     CUDA_CHECK(cudaMemcpy(weights_grad.data(), dl.grad_w, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(bias_grad.data(), dl.grad_b, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+}
+
+void CuConvolutionLayer::FetchActivationToCpu() {
+    ac.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
+    CUDA_CHECK(cudaMemcpy(ac.data(), dl.activation, outputShape.NumElements()* sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }

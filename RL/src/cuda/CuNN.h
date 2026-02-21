@@ -80,6 +80,7 @@ public:
 
     void SetLabel(const Tensor& tensor);
 
+    //deprecated
     TensorShape Build(TensorShape shape);
 
     void AllocDeviceMemory();
@@ -87,7 +88,6 @@ public:
     void AllocWorkSpaceIfNeeded();
 
     void Forward(const Tensor& x);
-    Tensor ForwardAndFetchPredY(const Tensor& x);
 
     void Backward();
 
@@ -114,6 +114,7 @@ public:
 
     void ReleaseDeviceMemory();
 
+    int batchSize = 0;
 protected:
     //backup of input and label y
     Tensor input;
@@ -137,4 +138,5 @@ protected:
     size_t workspaceSize = 0;
     CuNNWorkspace ws;
 
+    
 };

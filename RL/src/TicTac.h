@@ -15,6 +15,15 @@ struct Action {
 
 class TicTac {
 public:
+    TicTac() {
+        memset(board, 0, 9 * sizeof(char));
+        board[0] = 1;
+        board[1] = 1;
+        board[2] = 1;
+        board[6] = -1;
+        board[7] = -1;
+        board[8] = -1;
+    }
     char board[9];
     char player = 1;//black, -1:white
     int depth = 0;
@@ -24,9 +33,9 @@ public:
         res.board[0] = 1;
         res.board[1] = 1;
         res.board[2] = 1;
-        res.board[6] = 1;
-        res.board[7] = 1;
-        res.board[8] = 1;
+        res.board[6] = -1;
+        res.board[7] = -1;
+        res.board[8] = -1;
         return res;
     }
     Tensor Encode() const {
@@ -116,7 +125,7 @@ struct TicTacEntry {
 
 class TicTacNNProxy {
 public:
-    std::unique_ptr<CuNN> cunn = nullptr;
+    std::unique_ptr<CuNN> nn = nullptr;
 
     CuHead predict(const TicTac& state);
 
