@@ -314,7 +314,7 @@ void CuSoftmaxCrossEntropyLayer::forward() {
 void CuSoftmaxCrossEntropyLayer::backwardEx() {
     assert(!prevs.empty());
     int M = prevs[0]->GetActivationSize();
-    int batchSize = label.shape[0];
+    int batchSize = nn->batchSize;
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((M+TILE_WIDTH-1)/TILE_WIDTH, (batchSize + TILE_WIDTH - 1) / TILE_WIDTH);
     softmax_backward_kernel << <grid, block >> > (y, activation,prevs[0]->GetDelta(), batchSize, M);
@@ -337,9 +337,11 @@ void CuSoftmaxCrossEntropyLayer::BindLabelToDevice() {
 
 void CuSoftmaxCrossEntropyLayer::BindWorkspace(void* ptr) {
     activation = reinterpret_cast<float*>(ptr);
-
-    y = reinterpret_cast<float*>(ptr);
-    CUDA_CHECK(cudaMemcpy(y, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+    int num = inputShape.NumElements();
+    y = reinterpret_cast<float*>(ptr) + num;
+    if (label.data()) {
+        CUDA_CHECK(cudaMemcpy(y, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
+    }
 }
 
 size_t CuSoftmaxCrossEntropyLayer::GetWorkspaceSize() {
@@ -455,12 +457,15 @@ size_t CuMseLayer::GetWorkspaceSize() {
 void CuMseLayer::BindWorkspace(void* pointer) {
     float* ptr = reinterpret_cast<float*>(pointer);
     p = ptr;
-    ptr += label.numel();
-    grad = ptr;
-    ptr += label.numel();
-    y_label = reinterpret_cast<float*>(ptr);
-    CUDA_CHECK(cudaMemcpy(y_label, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
 
+    int num = inputShape.NumElements();
+    ptr += num; // label.numel();
+    grad = ptr;
+    ptr += num; // label.numel();
+    y_label = reinterpret_cast<float*>(ptr);
+    if (label.data()) {
+        CUDA_CHECK(cudaMemcpy(y_label, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
+    }
     return;
 }
 

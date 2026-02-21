@@ -38,10 +38,8 @@ void test_cnn_linear() {
     Tensor xs(1, 2);
     xs(0, 0) = -100.0;
     xs(0, 1) = 2.0;
-    TensorShape sp;
-    sp.N = 1;
-    sp.C = 2;
-    network.Build(sp);
+
+    network.AllocDeviceMemory();
 
     
     network.Forward(xs);
@@ -122,7 +120,6 @@ void test_cnn_conv() {
     int H = 3;
     int W = 3;
     Tensor convX(1, 2, H, W);
-    TensorShape shape(1, 2, H, W);
 
     for (int t = 0; t < W; ++t) {
         convX(0, 0, 0, t) = 1;
@@ -133,7 +130,7 @@ void test_cnn_conv() {
         convX(0, 1, 2, t) = 1;
     }
 
-    network.Build(shape);
+    network.AllocDeviceMemory();
     network.Forward(convX);
 
     c3->FetchActivationToCpu();

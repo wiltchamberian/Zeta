@@ -15,8 +15,8 @@ int main()
     CudaGetDeviceProps();
 
     //test_cnn_linear();
-    //test_cnn_conv();
-    //test_cnn_tictac();
+    test_cnn_conv();
+    test_cnn_tictac();
 
     std::unique_ptr<TicTacNNProxy> proxy = std::make_unique<TicTacNNProxy>();
     proxy->createNetwork();
