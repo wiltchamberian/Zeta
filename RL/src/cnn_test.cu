@@ -1,6 +1,7 @@
 #include "cnn_test.h"
 #include "CuNN.h"
-#include "cuLayer.h"
+#include "tanhLayer.h"
+#include "reluLayer.h"
 #include "TicTac.h"
 #include <memory>
 
@@ -158,7 +159,7 @@ void test_cnn_tictac() {
     network.Clear();
     std::cout << "start test convolution\n";
 
-    int batchSize = 1;
+    int batchSize = 2;
     //input N * 2 * 3 * 3
    
 
@@ -208,26 +209,41 @@ void test_cnn_tictac() {
             fully1->weights(i, j) = 0.1;
         }
     }
-    fully1->alpha = 0;
+    fully1->alpha = 1;
+
+    auto relu = network.CreateLayer<CuReluLayer>();
+    fully1->AddLayer(relu);
+
     auto cross = network.CreateLayer<CuSoftmaxCrossEntropyLayer>();
     cross->label = Tensor(batchSize, 9);
-    for (int i = 0; i < 9; ++i) {
-        cross->label(0, i) = 1.0 / 9.0;
+    for (int j = 0; j < batchSize; ++j) {
+        for (int i = 0; i < 9; ++i) {
+            cross->label(j, i) = 0.0; //1.0 / 9.0;
+        }
     }
-    fully1->AddLayer(cross);
+    cross->label(0, 0) = 1.0f;
+    
+    relu->AddLayer(cross);
 
     auto fully2 = network.CreateLayer<CuLinearLeakyReluLayer>(9, 1);
-    fully2->alpha = 0;
+    fully2->alpha = 1;
     for (int i = 0; i < 9; ++i) {
         for (int j = 0; j < 1; ++j) {
             fully2->weights(j, i) = 0.1;
         }
     }
-    auto mse = network.CreateLayer<CuMseLayer>();
-    mse->label = Tensor(1, 1);
-    mse->label(0, 0) = 0;
 
-    fully2->AddLayer(mse);
+    auto tanh = network.CreateLayer<CuTanhLayer>();
+    fully2->AddLayer(tanh);
+
+    auto mse = network.CreateLayer<CuMseLayer>();
+    mse->label = Tensor(batchSize, 1);
+    for (int i = 0; i < batchSize; ++i) {
+        mse->label(i, 0) = 0;
+    }
+    
+
+    tanh->AddLayer(mse);
 
     c3->AddLayer(fully1);
     c3->AddLayer(fully2);
@@ -239,19 +255,21 @@ void test_cnn_tictac() {
     //input
     int H = 3;
     int W = 3;
-    Tensor convX(1, 2, H, W);
-    TensorShape shape(1, 2, H, W);
-
-    for (int t = 0; t < W; ++t) {
-        convX(0, 0, 0, t) = 1;
-        convX(0, 0, 1, t) = 0;
-        convX(0, 0, 2, t) = 0;
-        convX(0, 1, 0, t) = 0;
-        convX(0, 1, 1, t) = 0;
-        convX(0, 1, 2, t) = 1;
+    Tensor convX(batchSize, 2, H, W);
+    TensorShape shape(batchSize, 2, H, W);
+    for (int i = 0; i < batchSize; ++i) {
+        for (int t = 0; t < W; ++t) {
+            convX(i, 0, 0, t) = 1;
+            convX(i, 0, 1, t) = 0;
+            convX(i, 0, 2, t) = 0;
+            convX(i, 1, 0, t) = 0;
+            convX(i, 1, 1, t) = 0;
+            convX(i, 1, 2, t) = 1;
+        }
     }
+    
   
-    network.Build(shape);
+    network.AllocDeviceMemory();
 
     //output
     network.Forward(convX);

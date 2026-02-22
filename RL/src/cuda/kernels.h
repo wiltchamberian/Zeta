@@ -6,15 +6,43 @@
 
 #define TILE_WIDTH 16
 
-__global__ void linear_forward_kernel(
-    const float* input,      // batch x in_dim
-    const float* weights,    // out_dim x in_dim
-    const float* bias,       // out_dim
-    float* output,           // batch x out_dim
-    int batch, int in_dim, int out_dim
+__global__ void tanh_forward_kernel(
+    const float* input,   // N * in_dim
+    float* output,        // N * in_dim
+    int total
 );
 
-__global__ void linear_relu_forward_kernel(
+__global__ void tanh_backward_kernel(
+    const float* dC_da,    //N * dim     dC/da
+    const float* a,        //N * dim
+    float* output,         //N * dim     dC/dz
+    int N
+);
+
+__global__ void leaky_relu_forward_kernel(
+    const float* input,
+    float* output,
+    int total_elements,
+    float alpha
+);
+
+__global__ void leaky_relu_backward_kernel(
+    const float* dC_da,
+    const float* a,
+    float* dC_dz,
+    int total_elements,
+    float alpha
+);
+
+__global__ void mse_loss_kernel(
+    const float* a,       // batch * dim 
+    const float* y,       // batch * dim
+    float* loss,         // 1
+    int batch,
+    int dim
+);
+
+__global__ void linear_forward_kernel(
     const float* input,      // batch x in_dim
     const float* weights,    // out_dim x in_dim
     const float* bias,       // out_dim
@@ -31,20 +59,15 @@ __global__ void linear_leaky_relu_forward_kernel(
     float alpha
 );
 
-__global__ void relu_forward_kernel(
-    const float* input,   // batch x dim
-    float* output,        // batch x dim
-    int total_elements     // batch * dim
+__global__ void linear_tanh_forward_kernel(
+    const float* input,      // batch x in_dim
+    const float* weights,    // out_dim x in_dim
+    const float* bias,       // out_dim
+    float* output,           // batch x out_dim
+    int batch, int in_dim, int out_dim
 );
 
-__global__ void leaky_relu_forward_kernel(
-    const float* input,
-    float* output,
-    int total_elements,
-    float alpha
-);
-
-__global__ void mse_loss_kernel(
+__global__ void mse_loss_backward_kernel(
     const float* a,       // batch x out_dim, a^L
     const float* y,       // batch x out_dim
     float* delta,         // batch x out_dim Êä³ö ¦Ä^L
@@ -62,16 +85,6 @@ __global__ void linear_backward_kernel(
     int dim_delta_next
 );
 
-__global__ void linear_relu_backward_kernel(
-    const float* delta_next, // batch x dim_delta_next ¦Ä^{l+1}
-    const float* W_next,     // dim_delta_next x dim_delta W^{l+1}
-    const float* a,          // batch x dim_delta a^l
-    float* delta,            // batch x dim_delta Êä³ö ¦Ä^l
-    int batch,
-    int dim_delta,
-    int dim_delta_next
-);
-
 __global__ void linear_leaky_relu_backward_kernel(
     const float* delta, // batch x dim_delta_next ¦Ä^{l}
     const float* W,     // dim_delta_next x dim_delta W^{l}
@@ -82,6 +95,17 @@ __global__ void linear_leaky_relu_backward_kernel(
     int dim_delta_prev,
     int dim_delta,
     float alpha              // LeakyReLU alpha
+);
+
+__global__ void linear_tanh_backward_kernel(
+    const float* delta, // batch x dim_delta_next ¦Ä^{l}
+    const float* W,     // dim_delta_next x dim_delta W^{l}
+    const float* a_prev,          // batch x dim_delta a^(l-1)
+    float* delta_prev,            // batch x dim_delta Êä³ö ¦Ä^(l-1)
+    bool add,
+    int batch,
+    int dim_delta_prev,
+    int dim_delta
 );
 
 __global__ void compute_grad_w_kernel(

@@ -214,6 +214,14 @@ public:
     Tensor ac;
 };
 
+class CuLinearTanhLayer : public CuLinearLeakyReluLayer {
+public:
+    using CuLinearLeakyReluLayer::CuLinearLeakyReluLayer;
+    void forward();
+    void backwardEx();
+    void dgrad();
+};
+
 class CuSoftmaxCrossEntropyLayer : public CuDefaultLayer {
 public:
     CuSoftmaxCrossEntropyLayer() /*:batchSize(0)*/ {

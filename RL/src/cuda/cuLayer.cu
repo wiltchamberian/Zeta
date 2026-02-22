@@ -89,7 +89,7 @@ void CuLinearLeakyReluLayer::dgrad() {
         return;
     }
     int dim_delta_prev = inputShape.Dim();//prevs[0]->GetDeltaSize();
-    int dim_delta = GetDeltaSize();
+    int dim_delta = outputShape.Dim();
     float* prev_activation = prevs[0]->GetActivation();
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((dim_delta_prev + block.x - 1) / block.x, (inputShape.N + block.y - 1) / block.y);
@@ -106,12 +106,12 @@ void CuLinearLeakyReluLayer::dgrad() {
         );
     prevs[0]->add = true;
 
-    float delta[16];
-    cudaMemcpy(delta, dl.delta, dim_delta * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-    float prevAc[16];
-    cudaMemcpy(prevAc, prev_activation, dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-    float test[16];
-    cudaMemcpy(test, prevs[0]->GetDelta(), dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float delta[16];
+    //cudaMemcpy(delta, dl.delta, dim_delta * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float prevAc[16];
+    //cudaMemcpy(prevAc, prev_activation, dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float test[16];
+    //cudaMemcpy(test, prevs[0]->GetDelta(), dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
 void CuLinearLeakyReluLayer::wgrad() {
@@ -142,6 +142,9 @@ void CuLinearLeakyReluLayer::bgrad() {
         inputShape.N,
         dim_delta
         );
+
+    //float dd[18];
+    //cudaMemcpy(dd, dl.delta, dim_delta * sizeof(float) * 2, cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
 void CuLinearLeakyReluLayer::InferOutputShape(TensorShape networkInput) {
@@ -261,11 +264,11 @@ void CuLinearLeakyReluLayer::Print() {
 }
 
 void CuLinearLeakyReluLayer::PrintGrad() {
-
+    std::cout << "CuLinearLeakyReluLayer:\n";
     std::cout << "weights_grad:\n";
-    weights_grad.print("W_");
+    weights_grad.print_torch_style();
     std::cout << "bias_grad:\n";
-    bias_grad.print("B_");
+    bias_grad.print_torch_style();
 }
 
 void CuLinearLeakyReluLayer::FetchResultToCpu() {
@@ -294,18 +297,74 @@ void CuLinearLeakyReluLayer::PrintDelta() {
 }
 
 /// <summary>
+/// CuLinearTanhLayer
+/// </summary>
+
+void CuLinearTanhLayer::forward() {
+    float* inputData = prevs.size() > 0 ? prevs[0]->GetActivation() : prevActivation;
+    if (inputData == nullptr) {
+        assert(false);
+        return;
+    }
+    int out_dim = dl.w_size / dl.in_dim;
+    dim3 block(TILE_WIDTH, TILE_WIDTH);
+    dim3 grid((out_dim + block.x - 1) / block.x, (inputShape.N + block.y - 1) / block.y);
+
+
+    linear_tanh_forward_kernel << <grid, block >> > (
+        inputData,
+        dl.weights,
+        dl.bias,
+        dl.activation,
+        inputShape.N, dl.in_dim, out_dim
+        );
+
+}
+
+void CuLinearTanhLayer::backwardEx() {
+    add = false;
+    dgrad();
+    wgrad();
+    bgrad();
+}
+
+void CuLinearTanhLayer::dgrad() {
+    if (prevs.empty()) {
+        return;
+    }
+    int dim_delta_prev = inputShape.Dim();//prevs[0]->GetDeltaSize();
+    int dim_delta = GetDeltaSize();
+    float* prev_activation = prevs[0]->GetActivation();
+    dim3 block(TILE_WIDTH, TILE_WIDTH);
+    dim3 grid((dim_delta_prev + block.x - 1) / block.x, (inputShape.N + block.y - 1) / block.y);
+    linear_tanh_backward_kernel << <grid, block >> > (
+        dl.delta,        // δ^{l}
+        dl.weights,
+        prev_activation,       // z^l (或 a^{l-1} 用于 σ'(z))
+        prevs[0]->GetDelta(),            // δ^(l-1) 输出
+        prevs[0]->add,
+        inputShape.N,
+        dim_delta_prev,
+        dim_delta
+        );
+    prevs[0]->add = true;
+
+}
+
+/// <summary>
 /// SoftmaxEntropyLayer
 /// </summary>
 void CuSoftmaxCrossEntropyLayer::forward() {
     assert(!prevs.empty());
     constexpr int BLOCK = 1024;
-    int M = prevs[0]->GetActivationSize();
+    int M = inputShape.Dim();
     int batchSize = nn->batchSize;
     float* prev_activation = prevs[0]->GetActivation();
     softmax_forward_kernel<<<batchSize, BLOCK >> > (prev_activation, activation,M);
 
     //TEST, FIX ME, TODO
-    //float dd[16];
+    /*float dd[18];
+    CUDA_CHECK(cudaMemcpy(dd, y, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));*/
     //CUDA_CHECK(cudaMemcpy(dd, prev_activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     //distribution.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
     //CUDA_CHECK(cudaMemcpy(distribution.data(), activation, outputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
@@ -313,7 +372,15 @@ void CuSoftmaxCrossEntropyLayer::forward() {
 
 void CuSoftmaxCrossEntropyLayer::backwardEx() {
     assert(!prevs.empty());
-    int M = prevs[0]->GetActivationSize();
+    //int M = prevs[0]->GetActivationSize();
+    int M = inputShape.Dim();
+    
+    //float kk[16];
+    //cudaMemcpy(kk, y, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float tt[16];
+    //cudaMemcpy(tt, activation, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+
+    
     int batchSize = nn->batchSize;
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     dim3 grid((M+TILE_WIDTH-1)/TILE_WIDTH, (batchSize + TILE_WIDTH - 1) / TILE_WIDTH);
@@ -322,7 +389,7 @@ void CuSoftmaxCrossEntropyLayer::backwardEx() {
     //TEST TODO
     //float dd[16];
     //cudaMemcpy(dd, prevs[0]->GetDelta(), M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-   
+    
 }
 
 void CuSoftmaxCrossEntropyLayer::applyGradient() {
@@ -331,7 +398,8 @@ void CuSoftmaxCrossEntropyLayer::applyGradient() {
 
 void CuSoftmaxCrossEntropyLayer::BindLabelToDevice() {
     if (y != nullptr) {
-        CUDA_CHECK(cudaMemcpy(y, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+        int num = inputShape.NumElements();
+        CUDA_CHECK(cudaMemcpy(y, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
     }
 }
 
@@ -342,11 +410,14 @@ void CuSoftmaxCrossEntropyLayer::BindWorkspace(void* ptr) {
     if (label.data()) {
         CUDA_CHECK(cudaMemcpy(y, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
     }
+
+    //float dd[18];
+    //CUDA_CHECK(cudaMemcpy(dd, y, num * sizeof(float), cudaMemcpyDeviceToHost));
 }
 
 size_t CuSoftmaxCrossEntropyLayer::GetWorkspaceSize() {
     //for label-y and activation
-    return prevs[0]->outputShape.NumElements() * 2;
+    return inputShape.NumElements() * 2;
 }
 
 void CuSoftmaxCrossEntropyLayer::BindDevice(void* ptr) {
@@ -416,7 +487,7 @@ void CuMseLayer::backwardEx() {
     dim3 grid((out_dim + block.x - 1) / block.x, (batch + block.y - 1) / block.y);
    
 
-    mse_loss_kernel << <grid, block >> > (
+    mse_loss_backward_kernel << <grid, block >> > (
         prev->GetActivation(),
         y_label,
         prev->GetDelta(),
@@ -443,7 +514,8 @@ void CuMseLayer::InferOutputShape(TensorShape networkInput) {
 
 void CuMseLayer::BindLabelToDevice() {
     if (y_label != nullptr) {
-        CUDA_CHECK(cudaMemcpy(y_label, label.data(), label.numel() * sizeof(float), cudaMemcpyHostToDevice));
+        int num = inputShape.NumElements();
+        CUDA_CHECK(cudaMemcpy(y_label, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
     }
 }
 
@@ -451,7 +523,8 @@ size_t CuMseLayer::GetWorkspaceSize() {
     //for softmax result p (a)
     //and crossEntropy p - label (dL/dp)
     //label-y
-    return label.numel() *  3;
+    //return label.numel() *  3;
+    return inputShape.NumElements() * 3;
 }
 
 void CuMseLayer::BindWorkspace(void* pointer) {
@@ -844,11 +917,7 @@ void CuConvolutionLayer::Print() {
 }
 
 void CuConvolutionLayer::PrintGrad() {
-    //std::cout << "weights_grad:\n";
-    //weights_grad.print("W_");
-    //std::cout << "bias_grad:\n";
-    //bias_grad.print("B_");
-
+    std::cout << "CuConvolutionLayer\n";
     std::cout << "weights_grad:\n";
     weights_grad.print_torch_style();
     std::cout << "bias_grad:\n";

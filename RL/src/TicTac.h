@@ -77,7 +77,7 @@ public:
 
     float terminal_value() const
     {
-        return 0.0f;
+        return -1.0f;
     }
 };
 
@@ -154,6 +154,8 @@ public:
     void selfPlay(TicTacReplayBuffer& buffer);
     //一次训练
     void train();
+    //实战下棋
+    TicTac play(const TicTac& state) const;
 
     void InitRandom();
     void InitRandom(uint32_t seed);

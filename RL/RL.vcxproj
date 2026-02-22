@@ -98,6 +98,8 @@
     <CudaCompile Include="src\cuda\cu_tool.cu" />
     <CudaCompile Include="src\cuda\kernels.cu" />
     <CudaCompile Include="src\cuda\mat.cu" />
+    <CudaCompile Include="src\cuda\reluLayer.cu" />
+    <CudaCompile Include="src\cuda\tanhLayer.cu" />
     <CudaCompile Include="src\cuda\tensor_operator.cpp" />
     <CudaCompile Include="src\fp16_dev.cu" />
     <CudaCompile Include="src\main.cu" />
@@ -120,6 +122,8 @@
     <ClInclude Include="src\cuda\cu_tool.h" />
     <ClInclude Include="src\cuda\kernels.h" />
     <ClInclude Include="src\cuda\mat.cuh" />
+    <ClInclude Include="src\cuda\reluLayer.h" />
+    <ClInclude Include="src\cuda\tanhLayer.h" />
     <ClInclude Include="src\cuda\tensor_operator.h" />
     <ClInclude Include="src\Layer.h" />
     <ClInclude Include="src\matrix.h" />
