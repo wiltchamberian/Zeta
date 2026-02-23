@@ -115,6 +115,7 @@ public:
     std::vector<std::unique_ptr<TicTacNode>> children;
 
     std::vector<float> getPolicyDistribution(float);
+    int subTreeDepth = 0;
 };
 
 struct TicTacEntry {
@@ -128,8 +129,8 @@ public:
     std::unique_ptr<CuNN> nn = nullptr;
 
     CuHead predict(const TicTac& state);
-
-    void createNetwork();
+    void setLearningRate(float rate);
+    void createNetwork(float learningRate);
     void train(const std::vector<TicTacEntry>& entries);
 
     CuLayer* root = nullptr;
@@ -144,10 +145,19 @@ public:
     std::vector<TicTacEntry> sample(size_t batch_size);
 };
 
+struct TicTacSetting {
+    int simulationCount = 0;
+    int num_episodes = 100;
+    int trainStepsPerEpisode = 20;
+    int batchSize = 100;
+    int miniBatchSize = 32;
+    float c_puct = 1.0;
+};
+
 class TicTacMcts {
 public:
     void backTrace(TicTacNode* n, float value);
-    float simulate(TicTacNode* n);
+    void simulate(TicTacNode* n);
     //一次搜索包含多次mcts simulation
     void search();
     //一次完整对弈，每一步棋包含一次搜索
@@ -156,11 +166,12 @@ public:
     void train();
     //实战下棋
     TicTac play(const TicTac& state) const;
-
     void InitRandom();
     void InitRandom(uint32_t seed);
 
     TicTacNNProxy* proxy = nullptr;
-
+    
     std::mt19937 gen;
+
+    TicTacSetting setting;
 };

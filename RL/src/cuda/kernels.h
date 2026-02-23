@@ -38,8 +38,7 @@ __global__ void mse_loss_kernel(
     const float* a,       // batch * dim 
     const float* y,       // batch * dim
     float* loss,         // 1
-    int batch,
-    int dim
+    int total
 );
 
 __global__ void linear_forward_kernel(
@@ -133,6 +132,13 @@ __global__ void apply_gradien_kernel(
     int dim_x,
     float learning_rate
 );
+
+__global__ void cross_entropy_kernel(
+    const float* p,
+    const float* y,
+    float* loss,
+    int batch,
+    int total);
 
 __global__ void softmax_forward_kernel(
     const float* input, // N * C * H * W

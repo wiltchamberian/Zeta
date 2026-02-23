@@ -226,6 +226,7 @@ class CuSoftmaxCrossEntropyLayer : public CuDefaultLayer {
 public:
     CuSoftmaxCrossEntropyLayer() /*:batchSize(0)*/ {
     }
+    float FetchLoss();
     void forward();
     void backwardEx();
     void applyGradient();
@@ -262,6 +263,7 @@ public:
     //int batchSize = 0;
     //softmax of input
     float* activation = nullptr;
+    float* loss = nullptr;
 
     //
     Tensor distribution;
@@ -273,6 +275,7 @@ public:
     CuMseLayer(int C);
     CuMseLayer(int C, int H);
     CuMseLayer(int C, int H, int W);
+    float FetchLoss();
     void forward();
     void backwardEx();
     void applyGradient();
@@ -294,10 +297,10 @@ public:
 
     Tensor label;
     float* y_label = nullptr;
-    float* p = nullptr;
-    float* grad = nullptr;
-    //output
     Tensor predY;
+
+    //device loss
+    float* loss = nullptr;
 };
 
 /********************convolution layer**************************/

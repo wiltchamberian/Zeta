@@ -354,6 +354,19 @@ void CuLinearTanhLayer::dgrad() {
 /// <summary>
 /// SoftmaxEntropyLayer
 /// </summary>
+/// 
+
+float CuSoftmaxCrossEntropyLayer::FetchLoss() {
+    int total = inputShape.NumElements();
+    int batch = nn->batchSize;
+    dim3 block(1024);
+    dim3 grid(1);
+    cross_entropy_kernel << <grid, block >> > (activation, y, loss, batch, total);
+    float res = 0;
+    CUDA_CHECK(cudaMemcpy(&res, loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    return res;
+}
+
 void CuSoftmaxCrossEntropyLayer::forward() {
     assert(!prevs.empty());
     constexpr int BLOCK = 1024;
@@ -363,9 +376,9 @@ void CuSoftmaxCrossEntropyLayer::forward() {
     softmax_forward_kernel<<<batchSize, BLOCK >> > (prev_activation, activation,M);
 
     //TEST, FIX ME, TODO
-    /*float dd[18];
-    CUDA_CHECK(cudaMemcpy(dd, y, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));*/
-    //CUDA_CHECK(cudaMemcpy(dd, prev_activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    //float dd[100];
+    //CUDA_CHECK(cudaMemcpy(dd, y, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));*/
+    //CUDA_CHECK(cudaMemcpy(dd, activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     //distribution.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
     //CUDA_CHECK(cudaMemcpy(distribution.data(), activation, outputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
@@ -410,14 +423,14 @@ void CuSoftmaxCrossEntropyLayer::BindWorkspace(void* ptr) {
     if (label.data()) {
         CUDA_CHECK(cudaMemcpy(y, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
     }
-
+    loss = reinterpret_cast<float*>(ptr) + num * 2;
     //float dd[18];
     //CUDA_CHECK(cudaMemcpy(dd, y, num * sizeof(float), cudaMemcpyDeviceToHost));
 }
 
 size_t CuSoftmaxCrossEntropyLayer::GetWorkspaceSize() {
-    //for label-y and activation
-    return inputShape.NumElements() * 2;
+    //for label-y and activation and loss
+    return inputShape.NumElements() * 2 + 1;
 }
 
 void CuSoftmaxCrossEntropyLayer::BindDevice(void* ptr) {
@@ -472,8 +485,22 @@ CuMseLayer::CuMseLayer(int C, int R, int S)
     label = Tensor(C, R, S);
 }
 
-void CuMseLayer::forward() {
+float CuMseLayer::FetchLoss() {
+    assert(!prevs.empty());
+    auto prev = prevs[0];
+    float* a = prev->GetActivation();
+    int total = inputShape.NumElements();
 
+    dim3 block(1024);
+    dim3 grid(1);
+    mse_loss_kernel << <grid, block >> > (a, y_label, loss, total);
+    float res = 0;
+    CUDA_CHECK(cudaMemcpy(&res, loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    return res;
+}
+
+void CuMseLayer::forward() {
+    
 }
 
 void CuMseLayer::backwardEx() {
@@ -520,25 +547,21 @@ void CuMseLayer::BindLabelToDevice() {
 }
 
 size_t CuMseLayer::GetWorkspaceSize() {
-    //for softmax result p (a)
-    //and crossEntropy p - label (dL/dp)
     //label-y
-    //return label.numel() *  3;
-    return inputShape.NumElements() * 3;
+    return inputShape.NumElements() + 1;
 }
 
 void CuMseLayer::BindWorkspace(void* pointer) {
     float* ptr = reinterpret_cast<float*>(pointer);
-    p = ptr;
 
     int num = inputShape.NumElements();
-    ptr += num; // label.numel();
-    grad = ptr;
-    ptr += num; // label.numel();
     y_label = reinterpret_cast<float*>(ptr);
     if (label.data()) {
         CUDA_CHECK(cudaMemcpy(y_label, label.data(), num * sizeof(float), cudaMemcpyHostToDevice));
     }
+
+    ptr += num;
+    loss = ptr;
     return;
 }
 
@@ -555,7 +578,8 @@ size_t CuMseLayer::GetActivationSize() {
 }
 
 float* CuMseLayer::GetActivation() {
-    return p;
+    assert(false);
+    return nullptr;
 }
 
 float* CuMseLayer::GetDelta() {

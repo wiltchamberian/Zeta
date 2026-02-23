@@ -87,18 +87,19 @@ void CuNN::AllocWorkSpaceIfNeeded() {
     // 2️⃣ 如果已有 workspace 内存够用就直接返回
     if (deviceWorkspace && workspaceSize >= bytes) {
         CUDA_CHECK(cudaMemset(deviceWorkspace, 0, workspaceSize));
-        return;
+        //return;
+    }
+    else {
+        // 3️⃣ 如果需要，释放旧内存并重新分配
+        if (deviceWorkspace) {
+            CUDA_CHECK(cudaFree(deviceWorkspace));
+            deviceWorkspace = nullptr;
+        }
+        CUDA_CHECK(cudaMalloc(&deviceWorkspace, bytes));
+        CUDA_CHECK(cudaMemset(deviceWorkspace, 0, bytes));
+        workspaceSize = bytes;
     }
 
-    // 3️⃣ 如果需要，释放旧内存并重新分配
-    if (deviceWorkspace) {
-        CUDA_CHECK(cudaFree(deviceWorkspace));
-        deviceWorkspace = nullptr;
-    }
-
-    CUDA_CHECK(cudaMalloc(&deviceWorkspace, bytes));
-    CUDA_CHECK(cudaMemset(deviceWorkspace, 0, bytes));
-    workspaceSize = bytes;
 
     // 4️⃣ 按顺序划分各个 buffer
     char* addr = static_cast<char*>(deviceWorkspace);

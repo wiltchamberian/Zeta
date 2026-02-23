@@ -49,10 +49,19 @@ int main()
     //test_cnn_tictac();
 
 
+    TicTacSetting setting;
+    setting.simulationCount = 20;
+    setting.batchSize = 256;
+    setting.miniBatchSize = 256;
+    setting.trainStepsPerEpisode = 1000;
+    setting.num_episodes = 500;
+
     std::unique_ptr<TicTacNNProxy> proxy = std::make_unique<TicTacNNProxy>();
-    proxy->createNetwork();
+    proxy->createNetwork(0.01);
+
     TicTacMcts mcts;
     mcts.proxy = proxy.get();
+    mcts.setting = setting;
     mcts.train();
 
     int d[64];

@@ -191,11 +191,10 @@ __global__ void mse_loss_kernel(
     int laneId = threadIdx.x & (WARP_SIZE - 1);
     int warpId = threadIdx.x / WARP_SIZE;
     int tid = threadIdx.x;
-    int row = blockIdx.x;
     int numWarps = blockDim.x / WARP_SIZE;
 
-    for (int i = threadIdx.x; i += blockIdx.x; i < total) {
-        int temp = a[i] - y[i];
+    for (int i = threadIdx.x; i < total;  i += blockDim.x) {
+        float temp = a[i] - y[i];
         square_sum += temp * temp;
     }
 
@@ -212,8 +211,7 @@ __global__ void mse_loss_kernel(
         sum = warp_reduce_sum(sum);
 
         if (j == 0) {
-            sum = sum / total;
-            loss[0] = sum;
+            loss[0] = sum / total;
         }
     }
     
@@ -469,6 +467,50 @@ __device__ SoftmaxState warpReduceSoftmax(SoftmaxState val) {
         val = reduceOp(val, other);
     }
     return val;
+}
+
+__global__ void cross_entropy_kernel(
+    const float* p,
+    const float* y,
+    float* loss,
+    int batch,
+    int total) {
+
+    int j = blockDim.x * blockIdx.x + threadIdx.x;
+
+    float cross = 0;
+
+    int laneId = threadIdx.x & (WARP_SIZE - 1);
+    int warpId = threadIdx.x / WARP_SIZE;
+    int tid = threadIdx.x;
+    int row = blockIdx.x;
+    int numWarps = blockDim.x / WARP_SIZE;
+
+    for (int i = threadIdx.x; i < total;  i += blockDim.x) {
+        //float p_safe = fmaxf(p[i], 1e-8f);
+        cross += ( - logf(p[i]) * y[i]);
+    }
+
+    float wrap_sum = warp_reduce_sum(cross);
+
+    __shared__ float shared_m[32]; //make sure block_dim /WRAP_SIZE <= 32
+    if (laneId == 0) {
+        shared_m[warpId] = wrap_sum;
+    }
+    __syncthreads();
+
+    if (warpId == 0) {
+        float sum = tid < numWarps ? shared_m[tid] : 0;
+        sum = warp_reduce_sum(sum);
+
+        if (j == 0) {
+            loss[0] = sum / batch;
+        }
+    }
+
+    return;
+
+
 }
 
 

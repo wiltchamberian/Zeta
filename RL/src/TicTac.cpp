@@ -1,6 +1,7 @@
 #include "TicTac.h"
 #include "reluLayer.h"
 #include "tanhLayer.h"
+#include <algorithm>
 
 TicTac TicTac::next_state(int action) const
 {
@@ -177,6 +178,7 @@ std::vector<int> TicTac::legalActions() const{
 
 //P(s; a) = (1 - epsilon ) * pa + epsilon * eta_a
 std::vector<float> TicTacNode::getPolicyDistribution(float temperature) {
+    //9 actions;
     std::vector<float> distribution(9, 0);
     constexpr float alpha = 0.03f;  //eta ~ Dir(alpha)
     constexpr float epsilon = 0.25f;
@@ -257,25 +259,31 @@ CuHead TicTacNNProxy::predict(const TicTac& state) {
 
 }
 
+void TicTacNNProxy::setLearningRate(float rate) {
+    nn->SetLearningRate(rate);
+}
+
 //build from scratch
-void TicTacNNProxy::createNetwork() {
+void TicTacNNProxy::createNetwork(float learningRate) {
 
     nn = std::make_unique<CuNN>();
-    nn->SetLearningRate(0.01);
+    nn->SetLearningRate(learningRate);
 
     //layer
-    auto c1 = nn->CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
+    auto c1 = nn->CreateLayer<CuConvolutionLayer>(16, 2, 3, 3);
     c1->alpha = 0.0;
     c1->RandomParameters();
     root = c1;
 
-    auto c2 = nn->CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
+    auto c2 = nn->CreateLayer<CuConvolutionLayer>(16, 16, 3, 3);
     c2->alpha = 0.0;
     c2->RandomParameters();
     c1->AddLayer(c2);
 
     //1d conv
-    auto c3 = nn->CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
+    auto c3 = nn->CreateLayer<CuConvolutionLayer>(1, 16, 1, 1);
+    c3->padH = 0;
+    c3->padW = 0;
     c3->RandomParameters();
     c2->AddLayer(c3);
 
@@ -290,11 +298,19 @@ void TicTacNNProxy::createNetwork() {
     auto cross = nn->CreateLayer<CuSoftmaxCrossEntropyLayer>();
     relu1->AddLayer(cross);
 
-    auto fully2 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 1);
+    auto fully2 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 9);
     fully2->RandomParameters();
+    auto relu2 = nn->CreateLayer<CuReluLayer>();
+    fully2->AddLayer(relu2);
+   
+
+    auto fully2_1 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 1);
+    fully2_1->RandomParameters();
+
+    relu2->AddLayer(fully2_1);
 
     auto tanh = nn->CreateLayer<CuTanhLayer>();
-    fully2->AddLayer(tanh);
+    fully2_1->AddLayer(tanh);
 
     auto mse = nn->CreateLayer<CuMseLayer>();
 
@@ -333,6 +349,14 @@ void TicTacNNProxy::train(const std::vector<TicTacEntry>& entries) {
     policyHead->BindLabelToDevice();
     valueHead->BindLabelToDevice();
 
+
+    float crossLoss = policyHead->FetchLoss();
+    float mseLoss = valueHead->FetchLoss();
+    float loss = crossLoss + mseLoss;
+    std::cout << "loss:" << loss << " mse:" << mseLoss << " cross:" << crossLoss << std::endl;
+
+    
+
     nn->Backward();
     nn->Step();
 }
@@ -358,21 +382,22 @@ void TicTacMcts::backTrace(TicTacNode* node, float value) {
     while (node->parent != nullptr) {
         value = -value;
         node->parentEdge->W += value;
+        node->parentEdge->visit_count += 1;
+
+        node->parent->subTreeDepth = std::max(node->parent->subTreeDepth, node->subTreeDepth + 1);
         node = node->parent;
     }
 }
 
 
-float TicTacMcts::simulate(TicTacNode* root) {
-
-    float c_puct = 1.0;
-
+void TicTacMcts::simulate(TicTacNode* root) {
     TicTacNode* cur = root;
     while (true) {
         if (cur->state.is_terminal()) {
             float value = cur->state.terminal_value();
             backTrace(cur, value);
-            return value;
+          
+            return ;
         }
         if (!cur->expanded){
             CuHead head = proxy->predict(cur->state);
@@ -399,7 +424,7 @@ float TicTacMcts::simulate(TicTacNode* root) {
 
             backTrace(cur, head.value);
             
-            return head.value;
+            return ;
         }
 
         int total = 0;
@@ -415,7 +440,7 @@ float TicTacMcts::simulate(TicTacNode* root) {
 
             //PUCT equation 
             float q = edge->Q();
-            float u = c_puct * edge->prior * sqrt(total) / (1 + edge->visit_count);
+            float u = setting.c_puct * edge->prior * sqrt(total) / (1 + edge->visit_count);
             float score = q + u;
 
             if (score > best_score) {
@@ -424,9 +449,7 @@ float TicTacMcts::simulate(TicTacNode* root) {
                 selectedEdge = edge;
             }
         }
-
-        selectedEdge->visit_count += 1;
-
+        assert(selectedEdge != nullptr);
         TicTacNode* child = cur->children[best].get();
         child->state = cur->state.next_state(selectedEdge->action);
 
@@ -440,37 +463,52 @@ void TicTacMcts::search() {
 }
 
 void TicTacMcts::selfPlay(TicTacReplayBuffer& replay) {
-    TicTac state = TicTac::initState();
-    
-    int simulationCount = 100;
     std::vector<Tensor> labels;
     std::vector<TicTac> states;
-    while (!state.is_terminal()) {
+
+    std::unique_ptr<TicTacNode> cur = std::make_unique<TicTacNode>();
+    cur->state = TicTac::initState();
+
+    while (!cur->state.is_terminal()) {
         
-        std::unique_ptr<TicTacNode> root = std::make_unique<TicTacNode>();
-        root->state = state;
-
-        for (int i = 0; i < simulationCount; ++i) {
-            simulate(root.get());
+        for (int i = 0; i < setting.simulationCount; ++i) {
+            simulate(cur.get());
         }
+        //std::cout << "Depth: " << cur->state.depth << " visits: ";
+        //for (auto& e : cur->edges)
+        //    std::cout << e->visit_count << " ";
+        //std::cout << std::endl;
 
-        float temperature = state.depth < 10 ? 1 : 0;
+        float temperature = cur->state.depth < 10 ? 1 : 0;
+        //float temperature = 1;
 
-        std::vector<float> policy_dis = root->getPolicyDistribution(temperature);
+        //action distribution
+        std::vector<float> policy_dis = cur->getPolicyDistribution(temperature);
 
         std::discrete_distribution<> dist(policy_dis.begin(), policy_dis.end());
-        int selection = dist(gen);
+        int selectedAction = dist(gen);
 
-        Tensor tensor(9);
-        tensor.setData(policy_dis);
-        labels.push_back(tensor);
-        states.push_back(state);
+        //record state
+        Tensor policy(9);
+        policy.setData(policy_dis);
+        labels.push_back(policy);
+        states.push_back(cur->state);
 
-        state = state.next_state(selection);
+        
+        for (int i = 0; i < cur->edges.size(); ++i) {
+            if (cur->edges[i]->action == selectedAction) {
+                auto child = std::move(cur->children[i]);
+                cur = std::move(child);
+                cur->parent = nullptr;
+                cur->parentEdge = nullptr;
+                break;
+            }
+        }
+        //state = state.next_state(selectedAction);
 
     }
-    int winner = -state.player;
-    for (int i = 0; i < states.size(); ++i) {
+    int winner = - cur->state.player;
+    for (int i = states.size()-1 ; i >= states.size()-3; --i) {
         TicTacEntry entry;
         entry.label = labels[i];
         entry.state = states[i].Encode();
@@ -480,25 +518,43 @@ void TicTacMcts::selfPlay(TicTacReplayBuffer& replay) {
 }
 
 void TicTacMcts::train() {
-    const int num_episodes = 100;
-    int trainStepsPerEpisode = 5;
-    int batchSize = 32;
+    //alpha-go-zero:
+    //minibatch: 2048
+    //checkpoint: 1000 iteration
+    InitRandom();
 
     TicTacReplayBuffer buffer;
-    for (int episode = 0; episode < num_episodes; ++episode) {
+    for (int episode = 0; episode < setting.num_episodes; ++episode) {
 
         selfPlay(buffer);
 
-        if (buffer.entries.size() > batchSize) {
-            // 丢掉前面的旧样本
-            buffer.entries.erase(buffer.entries.begin(), buffer.entries.end() - batchSize);
-        }
+        if (buffer.entries.size() >= setting.batchSize) {
+            std::uniform_int_distribution<size_t> dist(
+                0, buffer.entries.size() - 1);
 
-        if (!buffer.entries.empty()) {
-            for (int k = 0; k < trainStepsPerEpisode; ++k) {
-                proxy->train(buffer.entries); // 直接用 buffer.entries（现在就是最新 batchSize 个）
+            std::vector<TicTacEntry> miniBatch;
+            miniBatch.reserve(setting.miniBatchSize);
+
+            for (size_t i = 0; i < setting.miniBatchSize; ++i) {
+                size_t idx = dist(gen);
+                miniBatch.push_back(buffer.entries[idx]);
+            }
+
+            for (int k = 0; k < setting.trainStepsPerEpisode; ++k) {
+                proxy->train(miniBatch);
             }
         }
+
+        //if (buffer.entries.size() > batchSize) {
+        //    // 丢掉前面的旧样本
+        //    buffer.entries.erase(buffer.entries.begin(), buffer.entries.end() - batchSize);
+        //}
+
+        //if (!buffer.entries.empty()) {
+        //    for (int k = 0; k < trainStepsPerEpisode; ++k) {
+        //        proxy->train(buffer.entries); // 直接用 buffer.entries（现在就是最新 batchSize 个）
+        //    }
+        //}
     }
     return;
 }

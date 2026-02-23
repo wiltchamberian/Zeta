@@ -159,7 +159,7 @@ void test_cnn_tictac() {
     network.Clear();
     std::cout << "start test convolution\n";
 
-    int batchSize = 2;
+    int batchSize = 4;
     //input N * 2 * 3 * 3
    
 
@@ -271,16 +271,39 @@ void test_cnn_tictac() {
   
     network.AllocDeviceMemory();
 
-    //output
-    network.Forward(convX);
+    int iterNum = 10;
+    for (int i = 0; i < iterNum; ++i) {
+        network.Forward(convX);
+
+        mse->BindLabelToDevice();
+        cross->BindLabelToDevice();
+
+        network.Backward();
+
+        float mseLoss = mse->FetchLoss();
+        float crossLoss = cross->FetchLoss();
+        float loss = mseLoss + crossLoss;
+        std::cout << "loss:" << loss << std::endl;
+        std::cout << "mseLoss:" << mseLoss << "\n";
+        std::cout << "crossLoss:" << crossLoss << std::endl;
+        std::cout << std::endl;
+
+        network.Step();
+
+        //network.FetchResultToCpu();
+        //network.Print();
+    }
+   
+
     mse->FetchPredYToCpu();
     mse->predY.print("predY");
     fully1->FetchActivationToCpu();
     fully1->ac.print("distri");
 
     
+    
 
-    network.Backward();
+    
     c3->PrintDelta();
     fully1->PrintDelta();
     fully2->PrintDelta();
@@ -288,11 +311,9 @@ void test_cnn_tictac() {
     network.FetchGrad();
     network.PrintGrad();
 
-    network.Step();
+    
 
-    network.FetchResultToCpu();
-
-    network.Print();
+    
 }
 
 void tiktac() {
