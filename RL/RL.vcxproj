@@ -98,6 +98,7 @@
     <CudaCompile Include="src\cuda\cu_tool.cu" />
     <CudaCompile Include="src\cuda\kernels.cu" />
     <CudaCompile Include="src\cuda\mat.cu" />
+    <CudaCompile Include="src\cuda\maxpool.cu" />
     <CudaCompile Include="src\cuda\reluLayer.cu" />
     <CudaCompile Include="src\cuda\tanhLayer.cu" />
     <CudaCompile Include="src\cuda\tensor_operator.cpp" />
@@ -109,28 +110,36 @@
     <ClCompile Include="src\Activation.cpp" />
     <ClCompile Include="src\fp16_emu.cpp" />
     <ClCompile Include="src\Layer.cpp" />
+    <ClCompile Include="src\LeNet.cpp" />
     <ClCompile Include="src\mcts.cpp" />
+    <ClCompile Include="src\MctsAlgo.cpp" />
+    <ClCompile Include="src\mnist.cpp" />
     <ClCompile Include="src\NeuralNetwork.cpp" />
     <ClCompile Include="src\tensor.cpp" />
+    <ClCompile Include="src\ThreeTac.cpp" />
     <ClCompile Include="src\TicTac.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Activation.h" />
-    <ClInclude Include="src\cuda\CuActivation.h" />
     <ClInclude Include="src\cuda\cuLayer.h" />
     <ClInclude Include="src\cuda\CuNN.h" />
     <ClInclude Include="src\cuda\cu_tool.h" />
     <ClInclude Include="src\cuda\kernels.h" />
     <ClInclude Include="src\cuda\mat.cuh" />
+    <ClInclude Include="src\cuda\maxpool.h" />
     <ClInclude Include="src\cuda\reluLayer.h" />
     <ClInclude Include="src\cuda\tanhLayer.h" />
     <ClInclude Include="src\cuda\tensor_operator.h" />
     <ClInclude Include="src\Layer.h" />
+    <ClInclude Include="src\LeNet.h" />
     <ClInclude Include="src\matrix.h" />
     <ClInclude Include="src\mcts.h" />
+    <ClInclude Include="src\MctsAlgo.h" />
+    <ClInclude Include="src\mnist.h" />
     <ClInclude Include="src\NeuralNetwork.h" />
     <ClInclude Include="src\tensor.h" />
     <ClInclude Include="src\test.h" />
+    <ClInclude Include="src\ThreeTac.h" />
     <ClInclude Include="src\TicTac.h" />
   </ItemGroup>
   <ItemGroup>

@@ -2,6 +2,7 @@
 #include "tensor.h"
 #include "Layer.h"
 #include <cudnn.h>
+#include <fstream>
 
 struct TensorShape {
     TensorShape() {}
@@ -81,12 +82,13 @@ public:
     virtual void FetchGradToCpu() = 0;
     virtual void Print() {}
     virtual void PrintGrad() {}
-    
+    virtual void Save(std::fstream fs) {}
     virtual float GetAlpha() { return 1;  }
 
-    void AddLayer(CuLayer* layer) {
+    CuLayer* AddLayer(CuLayer* layer) {
         this->nexts.push_back(layer);
         layer->prevs.push_back(this);
+        return layer;
     }
     bool IsRoot() const {
         return prevs.empty();
@@ -175,7 +177,7 @@ public:
     void dgrad();
     void wgrad();
     void bgrad();
-
+    void regular_grad();
     void InferOutputShape(TensorShape networkInput) override;
     size_t GetWorkspaceSize();
     size_t GetDeviceSize();
@@ -192,6 +194,7 @@ public:
     virtual void FetchGradToCpu();
     void FetchActivationToCpu();
     void PrintDelta();
+    virtual void Save(std::fstream fs);
     float GetAlpha() {
         return alpha;
     }
@@ -326,7 +329,7 @@ public:
     void applyGradient();
 
     void wgrad();
-
+    void regular_grad();
     void bgrad();
 
     void PrintDelta();
@@ -365,8 +368,8 @@ public:
     int strideW = 1;
 };
 
-
-
+using Conv2d = CuConvolutionLayer;
+using Linear = CuLinearLeakyReluLayer;
 
 
 

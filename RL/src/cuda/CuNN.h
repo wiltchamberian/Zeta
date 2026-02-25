@@ -112,9 +112,14 @@ public:
 
     size_t GetBatchSize() const;
 
+    void Save(const std::string& path) const;
+
     void ReleaseDeviceMemory();
 
+    void ErrorCheck() const;
+
     int batchSize = 0;
+    float c = 1.0; //regularization parameter
 protected:
     //backup of input and label y
     Tensor input;

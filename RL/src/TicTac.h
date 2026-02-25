@@ -2,7 +2,7 @@
 #include <memory>
 #include <vector>
 #include <random>
-#include "CuNN.h"
+#include "MctsAlgo.h"
 
 struct Action {
     Action() {}
@@ -12,8 +12,7 @@ struct Action {
     char endPos = 0;
 };
 
-
-class TicTac {
+class TicTac: public mcts::State {
 public:
     TicTac() {
         memset(board, 0, 9 * sizeof(char));
@@ -27,17 +26,16 @@ public:
     char board[9];
     char player = 1;//black, -1:white
     int depth = 0;
-    static TicTac initState() {
-        TicTac res;
-        memset(res.board, 0, 9 *sizeof(char));
-        res.board[0] = 1;
-        res.board[1] = 1;
-        res.board[2] = 1;
-        res.board[6] = -1;
-        res.board[7] = -1;
-        res.board[8] = -1;
-        return res;
+    void initState() {
+        memset(board, 0, 9 *sizeof(char));
+        board[0] = 1;
+        board[1] = 1;
+        board[2] = 1;
+        board[6] = -1;
+        board[7] = -1;
+        board[8] = -1;
     }
+
     Tensor Encode() const {
         Tensor result(1, 2, 3, 3);
         float* d = result.data();
@@ -59,10 +57,28 @@ public:
         }
         return result;
     }
+    void FromTensor(const Tensor& result) {
+        player = 1;
+        const float* d = result.data();
+        for (int i = 0; i < 9; ++i) {
+            if (d[i] == 1) {
+                board[i] = 1;
+            }
+            else {
+                board[i] = 0;
+            }
+        }
+        for (int i = 0; i < 9; ++i) {
+            if (d[9 + i] == 1) {
+                board[i] = -1;
+            }
+        }
+    }
+
     bool legal(int i, int j) const;
     bool legalAction(int action) const;
-    std::vector<int> legalActions() const;
-    TicTac next_state(int action) const;
+    std::vector<int> legalActions() const override;
+    std::unique_ptr<mcts::State> next_state(int action) const;
     bool is_terminal() const
     {
         if (board[4] == (-player)) {
@@ -75,103 +91,52 @@ public:
         return false;
     }
 
+    char character(int p) const {
+        static char chs[3] = { 'O','.' ,'X' };
+        return chs[p + 1];
+    }
+
+    void printState() const {
+
+        std::cout << character(board[6]) << " | ";
+        std::cout << character(board[7]) << " | ";
+        std::cout << character(board[8]) << std::endl;
+
+        std::cout << character(board[3]) << " | ";
+        std::cout << character(board[4]) << " | ";
+        std::cout << character(board[5]) << std::endl;
+
+        std::cout << character(board[0]) << " | ";
+        std::cout << character(board[1]) << " | ";
+        std::cout << character(board[2]) << std::endl;
+
+        if (player == 1) {
+            std::cout << "player:human" << std::endl;
+        }
+        else {
+            std::cout << "player:AI" << std::endl;
+        }
+
+    }
+
     float terminal_value() const
     {
         return -1.0f;
     }
 };
 
-//each edge save a prior probaliby P(s,a)
-//visit count N(s,a) and action-value Q(s,a)
-struct TicTacEdge {
-    TicTacEdge(int ac, float policy)
-    :action(ac)
-    ,prior(policy){
-
-    }
-    int action = 0;
-
-    float prior = 0.0f;
-    int visit_count = 0;
-    float W = 0.0f;
-
-    float Q() {
-        if (visit_count == 0) {
-            return 0;
-        }
-        else {
-            return W / visit_count;
-        }
-    }
-};
-
-class TicTacNode {
-public:
-    TicTacEdge* parentEdge = nullptr;
-    TicTacNode* parent = nullptr;
-    TicTac state;
-    bool expanded = false;
-    std::vector<std::unique_ptr<TicTacEdge>> edges;
-    std::vector<std::unique_ptr<TicTacNode>> children;
-
-    std::vector<float> getPolicyDistribution(float);
-    int subTreeDepth = 0;
-};
-
-struct TicTacEntry {
-    Tensor label;
-    Tensor state;
-    float value;
-};
-
-class TicTacNNProxy {
+class TicTacProxy : public mcts::Proxy {
 public:
     std::unique_ptr<CuNN> nn = nullptr;
 
-    CuHead predict(const TicTac& state);
+    virtual std::shared_ptr<mcts::State> createState();
+    CuHead predict(const mcts::State* state);
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
-    void train(const std::vector<TicTacEntry>& entries);
+    void train(const std::vector<mcts::Entry>& entries);
 
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
     CuMseLayer* valueHead = nullptr;
 };
 
-class TicTacReplayBuffer {
-public:
-    std::vector<TicTacEntry> entries;
-
-    std::vector<TicTacEntry> sample(size_t batch_size);
-};
-
-struct TicTacSetting {
-    int simulationCount = 0;
-    int num_episodes = 100;
-    int trainStepsPerEpisode = 20;
-    int batchSize = 100;
-    int miniBatchSize = 32;
-    float c_puct = 1.0;
-};
-
-class TicTacMcts {
-public:
-    void backTrace(TicTacNode* n, float value);
-    void simulate(TicTacNode* n);
-    //一次搜索包含多次mcts simulation
-    void search();
-    //一次完整对弈，每一步棋包含一次搜索
-    void selfPlay(TicTacReplayBuffer& buffer);
-    //一次训练
-    void train();
-    //实战下棋
-    TicTac play(const TicTac& state) const;
-    void InitRandom();
-    void InitRandom(uint32_t seed);
-
-    TicTacNNProxy* proxy = nullptr;
-    
-    std::mt19937 gen;
-
-    TicTacSetting setting;
-};

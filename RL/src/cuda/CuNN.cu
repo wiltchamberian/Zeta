@@ -8,7 +8,6 @@
 #include <cuda_runtime.h>
 #include "cu_tool.h"
 
-#include "CuActivation.h"
 #include "kernels.h"
 
 void CuNN::SetInput(const Tensor& tensor) {
@@ -317,6 +316,10 @@ size_t CuNN::GetBatchSize() const {
     return 0;
 }
 
+void CuNN::Save(const std::string& path) const {
+
+}
+
 void CuNN::ReleaseDeviceMemory() {
     CUDA_CHECK(cudaFree(deviceMemory));
     deviceMemory = nullptr;
@@ -325,6 +328,14 @@ void CuNN::ReleaseDeviceMemory() {
     deviceWorkspace = nullptr;
     workspaceSize = 0;
     ws.Clear();
+}
+
+void CuNN::ErrorCheck() const {
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("Kernel launch error: %s\n", cudaGetErrorString(err));
+        assert(false);
+    }
 }
 
 void CuNN::Print() {

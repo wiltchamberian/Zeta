@@ -2,6 +2,7 @@
 #include "CuNN.h"
 #include "tanhLayer.h"
 #include "reluLayer.h"
+#include "maxpool.h"
 #include "TicTac.h"
 #include <memory>
 
@@ -165,7 +166,8 @@ void test_cnn_tictac() {
 
     //layer
     auto c1 = network.CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
-    c1->alpha = 0.0;
+    c1->padH = 1;
+    c1->padW = 1;
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 2; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -175,9 +177,18 @@ void test_cnn_tictac() {
             }
         }
     }
+    auto relu_for_conv = network.CreateLayer<CuReluLayer>();
+    c1->AddLayer(relu_for_conv);
+    auto maxpool = network.CreateLayer<MaxPool2d>();
+    maxpool->w = 2;
+    maxpool->h = 2;
+
+    relu_for_conv->AddLayer(maxpool);
 
     auto c2 = network.CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
     c2->alpha = 0.0;
+    c2->padH = 1;
+    c2->padW = 1;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 8; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -187,10 +198,12 @@ void test_cnn_tictac() {
             }
         }
     }
-    c1->AddLayer(c2);
+    maxpool->AddLayer(c2);
 
     //1d conv
     auto c3 = network.CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
+    c3->padH = 1;
+    c3->padW = 1;
     c3->alpha = 0.0;
     for (int i = 0; i < 1; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -253,8 +266,8 @@ void test_cnn_tictac() {
     mse->AddLayer(tail);
 
     //input
-    int H = 3;
-    int W = 3;
+    int H = 6;
+    int W = 6;
     Tensor convX(batchSize, 2, H, W);
     TensorShape shape(batchSize, 2, H, W);
     for (int i = 0; i < batchSize; ++i) {
@@ -262,9 +275,15 @@ void test_cnn_tictac() {
             convX(i, 0, 0, t) = 1;
             convX(i, 0, 1, t) = 0;
             convX(i, 0, 2, t) = 0;
+            convX(i, 0, 3, t) = 1;
+            convX(i, 0, 4, t) = 0;
+            convX(i, 0, 5, t) = 0;
             convX(i, 1, 0, t) = 0;
             convX(i, 1, 1, t) = 0;
             convX(i, 1, 2, t) = 1;
+            convX(i, 1, 3, t) = 0;
+            convX(i, 1, 4, t) = 0;
+            convX(i, 1, 5, t) = 1;
         }
     }
     

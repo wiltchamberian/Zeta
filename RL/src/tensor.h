@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <cstddef>
 #include <iostream>
+#include <fstream>
 #include <variant>
 #include <functional>
 
@@ -157,7 +158,6 @@ public:
     TensorT(const Shape& dims) : shape(dims) { initData(); }
     template<typename... Dims>
     TensorT(Dims... dims) : shape{ static_cast<Index>(dims)... } { initData(); }
-
     // --------------------
     // 拷贝构造
     // --------------------
@@ -772,6 +772,10 @@ public:
     // operator* 普通张量内积
     TensorT<T> operator*(const TensorT<T>& other) const {
         return this->matmul(other);
+    }
+
+    void save(std::fstream& fs) {
+        int rk = rank();
     }
 
     void print(std::string prefix) const {

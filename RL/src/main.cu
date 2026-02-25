@@ -8,35 +8,11 @@
 #include "test.h"
 #include "cu_tool.h"
 #include "cnn_test.h"
-#include "TicTac.h"
+#include "ThreeTac.h"
+#include "mnist.h"
+#include "LeNet.h"
 
-char character(int p) {
-    static char chs[3] = { 'O','.' ,'X' };
-    return chs[p + 1];
-}
 
-void printState(const TicTac& state) {
-
-    std::cout << character(state.board[6]) << " | ";
-    std::cout << character(state.board[7]) << " | ";
-    std::cout << character(state.board[8]) << std::endl;
-
-    std::cout << character(state.board[3]) << " | ";
-    std::cout << character(state.board[4]) << " | ";
-    std::cout << character(state.board[5]) << std::endl;
-
-    std::cout << character(state.board[0]) << " | ";
-    std::cout << character(state.board[1]) << " | ";
-    std::cout << character(state.board[2]) << std::endl;
-
-    if (state.player == 1) {
-        std::cout << "player:human" << std::endl;
-    }
-    else {
-        std::cout << "player:AI" << std::endl;
-    }
-
-}
 
 int main()
 {
@@ -47,46 +23,48 @@ int main()
     //test_cnn_linear();
     //test_cnn_conv();
     //test_cnn_tictac();
+    //mnist_test();
 
+    mcts::Setting setting;
+    setting.simulationCount = 100;
+    setting.batchSize = 128;
+    setting.miniBatchSize = 128;
+    setting.trainStepsPerEpisode = 500;
+    setting.num_episodes = 20;
+    setting.maxChessLength = 50;
 
-    TicTacSetting setting;
-    setting.simulationCount = 20;
-    setting.batchSize = 256;
-    setting.miniBatchSize = 256;
-    setting.trainStepsPerEpisode = 1000;
-    setting.num_episodes = 500;
-
-    std::unique_ptr<TicTacNNProxy> proxy = std::make_unique<TicTacNNProxy>();
+    std::unique_ptr<TicTacProxy> proxy = std::make_unique<TicTacProxy>();
     proxy->createNetwork(0.01);
+    proxy->nn->c = 0.0001;
 
-    TicTacMcts mcts;
+    mcts::Mcts mcts;
     mcts.proxy = proxy.get();
     mcts.setting = setting;
     mcts.train();
 
+    //save
+
     int d[64];
-    bool humanFirst = false;
     bool human = true;
     
-    TicTac state = TicTac::initState();
+    std::unique_ptr<mcts::State> state = std::make_unique<TicTac>();
+    state->Init();
     std::cout << "human first? (1:human 0:AI)\n";
     std::cin >> d[0];
     if (d[0] > 0) {
-        humanFirst = true;
         std::cout << "huamn first!\n";
         human = true;
     }
     else {
-        humanFirst = false;
         std::cout << "Ai first!\n";
         human = false;
-        state.player = -1;
+        state->player = -1;
     }
-    printState(state);
+    state->printState();
     //start play game
     while (true) {
-        if (state.is_terminal()) {
-            if (state.player == 1) {
+        if (state->is_terminal()) {
+            if (state->player == 1) {
                 std::cout << "winner is AI!\n";
             }
             else {
@@ -96,15 +74,29 @@ int main()
         }
         if (human) {
             std::cout << "please choose your action!\n";
-            std::cin >> d[0];
-            state = state.next_state(d[0]);
-            printState(state);
+            auto legals = state->legalActions();
+            while (true) {
+                std::cin >> d[0];
+                bool bingo = false;
+                for (int k = 0; k < legals.size(); ++k) {
+                    if (d[0] == legals[k]) {
+                        bingo = true;
+                        break;
+                    }
+                }
+                if (bingo) {
+                    break;
+                }
+            }
+            
+            state = state->next_state(d[0]);
+            state->printState();
             human = !human;
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         else {
             state = mcts.play(state);
-            printState(state);
+            state->printState();
             human = !human;
         }
 
@@ -112,5 +104,9 @@ int main()
     std::cin >> d[0];
 
     return 0;
+}
+
+void HumanSupervised() {
+
 }
 

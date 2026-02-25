@@ -1,0 +1,26 @@
+#pragma once
+#include "TicTac.h"
+
+class ThreeTacState : public mcts::State{
+public:
+    virtual void Init() override;
+    virtual Tensor Encode() const override;
+    virtual void FromTensor(const Tensor& result) override;
+    virtual std::vector<int> legalActions() const override;
+    virtual std::unique_ptr<mcts::State> next_state(int action) const override;
+    virtual bool is_terminal() const override;
+    virtual float terminal_value() const override;
+    virtual void printState() const override;
+    char character(int p) const;
+
+protected:
+    char board[9];
+
+};
+
+class ThreeTacProxy : public TicTacProxy {
+public:
+    virtual std::shared_ptr<mcts::State> createState();
+    void createNetwork(float learningRate);
+};
+

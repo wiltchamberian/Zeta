@@ -219,6 +219,65 @@ __global__ void mse_loss_kernel(
 
 }
 
+__global__ void max_pool_2d_forward_kernel(
+    const float* in,
+    float* out,
+    int* maxIndex,
+    int N,
+    int h, //pool_size
+    int w,
+    int H, //out feature
+    int W
+) {
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (i >= H || j >= W || k>=N) return;
+
+    float maxVal = -INFINITY;
+    int maxIdx = -1;
+    int Ww = W * w;
+    int WwHh = Ww * H * h;
+    int WH = W * H;
+    for (int a = 0; a < h; ++a) {
+        for (int b = 0; b < w; ++b) {
+            int idx = k * WwHh + (i * h + a) * Ww + (j * w + b);
+            if (in[idx] > maxVal) {
+                maxVal = in[idx];
+                maxIdx = idx;
+            }
+        }
+    }
+    int outIdx = k * WH + i * W + j;
+    out[outIdx] = maxVal;
+    maxIndex[outIdx] = maxIdx;
+
+}
+
+__global__ void max_pool_2d_backward_kernel(
+    const float* dC_da,
+    const int* maxIndex,
+    float* delta,
+    int N,
+    int H,//dC_da
+    int W
+) 
+{
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+    if (i >= H || j >= W || k >= N) return;
+
+    int HW = H * W;
+   
+    int idx = k * HW + i * W + j;
+
+    delta[maxIndex[idx]] = dC_da[idx];
+    
+    return;
+}
+
 __global__ void mse_loss_backward_kernel(
     const float* a,       // batch x out_dim, a^L
     const float* y,       // batch x out_dim
@@ -513,6 +572,25 @@ __global__ void cross_entropy_kernel(
 
 }
 
+
+__global__ void simple_softmax_forward_kernel(
+    const float* input,
+    float* output,
+    int M
+) {
+    int row = blockIdx.x;
+    const float* row_input = input + row * M;
+    float* row_output = output + row * M;
+
+    float m = -INFINITY;
+    for (int i = 0; i < M; i++) m = fmaxf(m, row_input[i]);
+    float sum = 0;
+    for (int i = 0; i < M; i++) {
+        row_output[i] = exp(row_input[i] - m);
+        sum += row_output[i];
+    }
+    for (int i = 0; i < M; i++) row_output[i] /= sum;
+}
 
 __global__ void softmax_forward_kernel(
     const float* input, 
@@ -945,4 +1023,18 @@ __global__ void conv_wgrad_kernel(
     if (i >= K || j >= out_dim) return;
 
     grad_w[i * out_dim + j] = value;
+}
+
+__global__ void regular_kernel(
+    const float* weights, //NCHW
+    float* grad_w,        //NCHW
+    int NCHW,
+    float c
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= NCHW) {
+        return;
+    }
+    grad_w[i] += 2 * c * weights[i];
+    return;
 }

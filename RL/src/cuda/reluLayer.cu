@@ -11,6 +11,9 @@ void CuReluLayer::forward() {
     dim3 block(TILE_WIDTH);
     dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);
     leaky_relu_forward_kernel << <grid, block >> > (inputData, ys, total, alpha);
+
+    //float d[100];
+    //cudaMemcpy(d, ys, H * W, cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
 void CuReluLayer::backwardEx() {

@@ -162,6 +162,7 @@ convertToFloat(void *x, cudnnDataType_t dataType) {
         float f = *static_cast<float *>(x);
         return f;
     }
+    return 0;
 }
 
 void

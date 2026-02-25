@@ -12,6 +12,8 @@ CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
     , out_dim(output) {
     weights = Tensor(output, input); //reverse order to level up computation performance
     b = Tensor(output);
+
+    RandomParameters();
 }
 
 void CuLinearLeakyReluLayer::RandomParameters() {
@@ -46,6 +48,9 @@ void CuLinearLeakyReluLayer::forward() { /* kernel launch */
         inputShape.N, dl.in_dim, out_dim,
         alpha
         );
+
+    //float dd[1000];
+    //cudaMemcpy(dd, dl.activation, out_dim * sizeof(float), cudaMemcpyDeviceToHost);
 }
 
 void CuLinearLeakyReluLayer::backward(const float* delta_next, const float* w_next) {
@@ -71,6 +76,10 @@ void CuLinearLeakyReluLayer::backwardEx() {
     dgrad();
     wgrad();
     bgrad();
+    if (nn->c != 0) {
+        regular_grad();
+    }
+    
 }
 
 void CuLinearLeakyReluLayer::applyGradient() {
@@ -106,8 +115,8 @@ void CuLinearLeakyReluLayer::dgrad() {
         );
     prevs[0]->add = true;
 
-    //float delta[16];
-    //cudaMemcpy(delta, dl.delta, dim_delta * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    float delta[16];
+    cudaMemcpy(delta, dl.weights, 16 * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     //float prevAc[16];
     //cudaMemcpy(prevAc, prev_activation, dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     //float test[16];
@@ -145,6 +154,14 @@ void CuLinearLeakyReluLayer::bgrad() {
 
     //float dd[18];
     //cudaMemcpy(dd, dl.delta, dim_delta * sizeof(float) * 2, cudaMemcpyKind::cudaMemcpyDeviceToHost);
+}
+
+void CuLinearLeakyReluLayer::regular_grad()
+{
+    int total = weights.numel();
+    dim3 block(TILE_WIDTH);
+    dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);
+    regular_kernel << <grid, block >> > (dl.weights, dl.grad_w, total, nn->c);
 }
 
 void CuLinearLeakyReluLayer::InferOutputShape(TensorShape networkInput) {
@@ -296,6 +313,11 @@ void CuLinearLeakyReluLayer::PrintDelta() {
 
 }
 
+void CuLinearLeakyReluLayer::Save(std::fstream fs) {
+    FetchResultToCpu();
+
+}
+
 /// <summary>
 /// CuLinearTanhLayer
 /// </summary>
@@ -361,6 +383,12 @@ float CuSoftmaxCrossEntropyLayer::FetchLoss() {
     int batch = nn->batchSize;
     dim3 block(1024);
     dim3 grid(1);
+
+    //float dd[1000];
+    //cudaMemcpy(dd, activation, total * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float ds[1000];
+    //cudaMemcpy(ds, y, total * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+
     cross_entropy_kernel << <grid, block >> > (activation, y, loss, batch, total);
     float res = 0;
     CUDA_CHECK(cudaMemcpy(&res, loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
@@ -373,14 +401,17 @@ void CuSoftmaxCrossEntropyLayer::forward() {
     int M = inputShape.Dim();
     int batchSize = nn->batchSize;
     float* prev_activation = prevs[0]->GetActivation();
-    softmax_forward_kernel<<<batchSize, BLOCK >> > (prev_activation, activation,M);
 
-    //TEST, FIX ME, TODO
-    //float dd[100];
-    //CUDA_CHECK(cudaMemcpy(dd, y, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));*/
-    //CUDA_CHECK(cudaMemcpy(dd, activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
-    //distribution.zeros(outputShape.N, outputShape.C, outputShape.H, outputShape.W);
-    //CUDA_CHECK(cudaMemcpy(distribution.data(), activation, outputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    //softmax_forward_kernel<<<batchSize, BLOCK >> > (prev_activation, activation,M);
+    simple_softmax_forward_kernel << <batchSize, 1 >> > (prev_activation, activation, M);
+
+
+    ////TEST, FIX ME, TODO
+    //float dd[1000];
+    //float dd1[1000];
+    //CUDA_CHECK(cudaMemcpy(dd, prev_activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    //CUDA_CHECK(cudaMemcpy(dd1, activation, inputShape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+
 }
 
 void CuSoftmaxCrossEntropyLayer::backwardEx() {
@@ -388,10 +419,10 @@ void CuSoftmaxCrossEntropyLayer::backwardEx() {
     //int M = prevs[0]->GetActivationSize();
     int M = inputShape.Dim();
     
-    //float kk[16];
-    //cudaMemcpy(kk, y, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-    //float tt[16];
-    //cudaMemcpy(tt, activation, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+   /* float kk[16];
+    cudaMemcpy(kk, y, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    float tt[16];
+    cudaMemcpy(tt, activation, M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);*/
 
     
     int batchSize = nn->batchSize;
@@ -400,8 +431,8 @@ void CuSoftmaxCrossEntropyLayer::backwardEx() {
     softmax_backward_kernel << <grid, block >> > (y, activation,prevs[0]->GetDelta(), batchSize, M);
 
     //TEST TODO
-    //float dd[16];
-    //cudaMemcpy(dd, prevs[0]->GetDelta(), M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    /*float dd[16];
+    cudaMemcpy(dd, prevs[0]->GetDelta(), M * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);*/
     
 }
 
@@ -613,15 +644,13 @@ void CuMseLayer::Print() {
 
 /******************************convolution layer*********************************/
 CuConvolutionLayer::CuConvolutionLayer(int K, int C, int R, int S)
-:padH(1)
-,padW(1)
-,strideH(1)
-,strideW(1)
 {
     weights = Tensor(K, C, R, S);
     b = Tensor(K);
     dl.w_size = K * C * R * S;
     dl.b_size = K;
+
+    RandomParameters();
 }
 
 void CuConvolutionLayer::RandomParameters() {
@@ -811,6 +840,10 @@ void CuConvolutionLayer::backwardEx() {
     dgrad();
     wgrad();
     bgrad();
+    if (nn->c != 0) {
+        regular_grad();
+    }
+    
 }
 
 void CuConvolutionLayer::applyGradient() {
@@ -863,6 +896,14 @@ void CuConvolutionLayer::dgrad() {
         C,
         H, W, P, Q, R, S, strideH, strideW, padH, padW, K, prev->GetAlpha());
     prev->add = true;
+}
+
+void CuConvolutionLayer::regular_grad() 
+{
+    int total = weights.numel();
+    dim3 block(TILE_WIDTH);
+    dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);
+    regular_kernel << <grid, block >> > (dl.weights, dl.grad_w, total, nn->c);
 }
 
 void CuConvolutionLayer::wgrad() {

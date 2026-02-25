@@ -5,6 +5,7 @@
 #include "device_launch_parameters.h"
 
 #define TILE_WIDTH 16
+#define TILE_SMALL 8
 
 __global__ void tanh_forward_kernel(
     const float* input,   // N * in_dim
@@ -39,6 +40,26 @@ __global__ void mse_loss_kernel(
     const float* y,       // batch * dim
     float* loss,         // 1
     int total
+);
+
+__global__ void max_pool_2d_forward_kernel(
+    const float* in,
+    float* out,
+    int* maxIndex,
+    int N,
+    int h,
+    int w,
+    int H,
+    int W
+);
+
+__global__ void max_pool_2d_backward_kernel(
+    const float* dC_da,
+    const int* maxIndex,
+    float* delta,
+    int N,
+    int H,//d_da
+    int W
 );
 
 __global__ void linear_forward_kernel(
@@ -140,6 +161,12 @@ __global__ void cross_entropy_kernel(
     int batch,
     int total);
 
+__global__ void simple_softmax_forward_kernel(
+    const float* input,
+    float* output,
+    int CHW
+);
+
 __global__ void softmax_forward_kernel(
     const float* input, // N * C * H * W
     float* output, //N * C * H * W
@@ -192,6 +219,13 @@ __global__ void conv_wgrad_kernel(
     const float* a_prev, //NCHW -> NPQ * CRS
     float* grad_w, //KCRS -> K * CRS
     int N, int K, int C, int H, int W, int P, int Q, int R, int S, int strideH, int strideW, int padH, int padW
+);
+
+__global__ void regular_kernel(
+    const float* weights, //NCHW
+    float* grad_w,        //NCHW
+    int NCHW,
+    float c
 );
 
 
