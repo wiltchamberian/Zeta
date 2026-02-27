@@ -78,6 +78,14 @@ size_t CuReluLayer::GetDeltaSize() {
     return inputShape.NumElements();
 }
 
+CuLayer* CuReluLayer::Clone() const {
+    auto res =  new CuReluLayer();
+    res->inputShape = inputShape;
+    res->outputShape = outputShape;
+    res->alpha = this->alpha;
+    return res;
+}
+
 void CuReluLayer::FetchResultToCpu() {
 
 }

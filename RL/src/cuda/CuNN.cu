@@ -59,7 +59,28 @@ void CuNN::AllocDeviceMemory() {
         return false;
      });
 
-    
+}
+
+void CuNN::CopyAndBindDeviceMemory(void* memory, size_t siz){
+    if (deviceMemory != nullptr) {
+        CUDA_CHECK(cudaFree(deviceMemory));
+        deviceMemorySize = 0;
+    }
+
+    // 2️⃣ 一次性分配
+    deviceMemorySize = siz;
+    CUDA_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
+    CUDA_CHECK(cudaMemcpy(deviceMemory, memory, deviceMemorySize, cudaMemcpyDeviceToDevice));
+
+    char* addr = static_cast<char*>(deviceMemory);
+
+    // 3️⃣ 遍历每层，分配指针并拷贝 host 数据
+    Travel([&addr](CuLayer* layer)->bool {
+        layer->BindDevice(addr);
+        addr += layer->GetDeviceSize() * sizeof(float);
+        return false;
+        });
+
 }
 
 void CuNN::AllocWorkSpaceIfNeeded() {
@@ -335,6 +356,34 @@ void CuNN::ErrorCheck() const {
     if (err != cudaSuccess) {
         printf("Kernel launch error: %s\n", cudaGetErrorString(err));
         assert(false);
+    }
+}
+
+CuNN* CuNN::Clone() const {
+    CuNN* nn = new CuNN();
+    nn->c = this->c;
+    for (int i = 0; i < layers.size(); ++i) {
+        CuLayer* newLayer = layers[i]->Clone();
+        newLayer->nn = nn;
+        layers[i]->ref = newLayer;
+        nn->layers.push_back(std::unique_ptr<CuLayer>(newLayer));
+    }
+    for (int i = 0; i < layers.size(); ++i) {
+        for (auto& l : layers[i]->prevs) {
+            layers[i]->ref->prevs.push_back(l->ref);
+        }
+        for (auto& l : layers[i]->nexts) {
+            layers[i]->ref->nexts.push_back(l->ref);
+        }
+        //layers[i]->ref = nullptr;
+    }
+    nn->CopyAndBindDeviceMemory(deviceMemory, deviceMemorySize);
+    return nn;
+}
+
+void CuNN::CleanRefs() {
+    for (int i = 0; i < layers.size();++i) {
+        layers[i]->ref = nullptr;
     }
 }
 

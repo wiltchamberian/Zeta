@@ -4,9 +4,9 @@
 #include <algorithm>
 #include <random>
 
-std::unique_ptr<mcts::State> TicTac::next_state(int action) const
+std::shared_ptr<mcts::State> TicTac::next_state(int action) const
 {
-    std::unique_ptr<TicTac> s = std::make_unique<TicTac>();
+    std::shared_ptr<TicTac> s = std::make_shared<TicTac>();
     *s = *this;
 
     //action
@@ -222,6 +222,7 @@ void TicTacProxy::setLearningRate(float rate) {
 
 //build from scratch
 void TicTacProxy::createNetwork(float learningRate) {
+    totalActionCount = 9;
 
     nn = std::make_unique<CuNN>();
     nn->SetLearningRate(learningRate);
@@ -249,11 +250,9 @@ void TicTacProxy::createNetwork(float learningRate) {
     c3->AddLayer(relu);
 
     auto fully1 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 9);
-    auto relu1 = nn->CreateLayer<CuReluLayer>();
-    fully1->AddLayer(relu1);
 
     auto cross = nn->CreateLayer<CuSoftmaxCrossEntropyLayer>();
-    relu1->AddLayer(cross);
+    fully1->AddLayer(cross);
 
     auto fully2 = nn->CreateLayer<CuLinearLeakyReluLayer>(9, 9);
     auto relu2 = nn->CreateLayer<CuReluLayer>();
@@ -314,6 +313,22 @@ void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
 
     nn->Backward();
     nn->Step();
+}
+
+mcts::Proxy* TicTacProxy::Clone() const {
+    TicTacProxy* proxy = new TicTacProxy();
+    proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
+    proxy->root = this->root->ref;
+    proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);
+    proxy->valueHead = dynamic_cast<CuMseLayer*>(this->valueHead->ref);
+    this->nn->CleanRefs();
+    proxy->totalActionCount = totalActionCount;
+    return proxy;
+}
+
+std::vector<mcts::Entry> TicTacProxy::createSamples() {
+    return {};
+
 }
 
 

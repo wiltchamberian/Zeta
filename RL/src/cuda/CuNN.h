@@ -85,6 +85,8 @@ public:
 
     void AllocDeviceMemory();
 
+    void CopyAndBindDeviceMemory(void* deviceMemory, size_t siz);
+
     void AllocWorkSpaceIfNeeded();
 
     void Forward(const Tensor& x);
@@ -118,8 +120,17 @@ public:
 
     void ErrorCheck() const;
 
+    CuNN* Clone() const;
+
+    void CleanRefs(); //use with clone
+
     int batchSize = 0;
     float c = 1.0; //regularization parameter
+
+    void* GetDeviceMemory() { return deviceMemory; }
+    void* GetWorkspace() { return deviceWorkspace; }
+    int GetDeiviceSize() { return deviceMemorySize;  }
+    int GetWorkspaceSize() { return workspaceSize;  }
 protected:
     //backup of input and label y
     Tensor input;

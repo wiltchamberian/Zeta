@@ -7,6 +7,9 @@
 #include "CuNN.h"
 
 /**********************CuLinearLeakyReluLayer*****************************/
+CuLinearLeakyReluLayer::CuLinearLeakyReluLayer() {
+}
+
 CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
     :in_dim(input)
     , out_dim(output) {
@@ -271,6 +274,17 @@ float* CuLinearLeakyReluLayer::GetPrevActivation() {
     }
 }
 
+CuLayer* CuLinearLeakyReluLayer::Clone() const {
+    CuLinearLeakyReluLayer* abc = new CuLinearLeakyReluLayer();
+    abc->in_dim = this->in_dim;
+    abc->out_dim = this->out_dim;
+    abc->weights = this->weights.Clone();
+    abc->b = this->b.Clone();
+
+    abc->alpha = this->alpha;
+    return abc;
+}
+
 void CuLinearLeakyReluLayer::Print() {
 
     std::cout << "weights:\n";
@@ -472,6 +486,13 @@ size_t CuSoftmaxCrossEntropyLayer::GetDeviceSize() {
     return 0;
 }
 
+CuLayer* CuSoftmaxCrossEntropyLayer::Clone() const {
+    CuSoftmaxCrossEntropyLayer* r = new CuSoftmaxCrossEntropyLayer();
+    r->inputShape = this->inputShape;
+    r->outputShape = this->outputShape;
+    return r;
+}
+
 void CuSoftmaxCrossEntropyLayer::InferOutputShape(TensorShape networkInput) {
     TensorShape shape = prevs.empty() ? networkInput : prevs[0]->outputShape;
     TensorShape result;
@@ -642,7 +663,19 @@ void CuMseLayer::Print() {
 
 }
 
+CuLayer* CuMseLayer::Clone() const {
+    CuMseLayer* layer = new CuMseLayer();
+    layer->inputShape = this->inputShape;
+    layer->outputShape = this->outputShape;
+    layer->label = this->label.Clone();
+    return layer;
+}
+
 /******************************convolution layer*********************************/
+CuConvolutionLayer::CuConvolutionLayer() {
+
+}
+
 CuConvolutionLayer::CuConvolutionLayer(int K, int C, int R, int S)
 {
     weights = Tensor(K, C, R, S);
@@ -798,6 +831,28 @@ void CuConvolutionLayer::forward() {
         dl.activation, 
         inputShape.N, inputShape.C, inputShape.H, inputShape.W, R, S,
         strideH, strideW, padH, padW,  K, outputShape.H, outputShape.W, alpha);
+}
+
+CuLayer* CuConvolutionLayer::Clone() const{
+    CuConvolutionLayer* layer = new CuConvolutionLayer();
+    layer->inputShape = this->inputShape;
+    layer->outputShape = this->outputShape;
+    layer->weights = this->weights.Clone();
+    layer->b = this->b.Clone();
+    layer->weights_grad = this->weights_grad.Clone();
+    layer->bias_grad = this->bias_grad.Clone();
+    layer->ac = this->ac.Clone();
+    layer->in_dim = this->in_dim;
+    layer->out_dim = this->out_dim;
+    layer->alpha = this->alpha;
+    layer->padH = this->padH;
+    layer->padW = this->padW;
+    layer->strideH = this->strideH;
+    layer->strideW = this->strideW;
+    layer->dl.w_size = this->dl.w_size;
+    layer->dl.b_size = this->dl.b_size;
+    
+    return layer;
 }
 
 void CuConvolutionLayer::backward(const float* delta_next, const float* w_next) {

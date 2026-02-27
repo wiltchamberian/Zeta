@@ -24,9 +24,7 @@ public:
         board[8] = -1;
     }
     char board[9];
-    char player = 1;//black, -1:white
-    int depth = 0;
-    void initState() {
+    void Init() override {
         memset(board, 0, 9 *sizeof(char));
         board[0] = 1;
         board[1] = 1;
@@ -78,7 +76,7 @@ public:
     bool legal(int i, int j) const;
     bool legalAction(int action) const;
     std::vector<int> legalActions() const override;
-    std::unique_ptr<mcts::State> next_state(int action) const;
+    std::shared_ptr<mcts::State> next_state(int action) const;
     bool is_terminal() const
     {
         if (board[4] == (-player)) {
@@ -123,6 +121,10 @@ public:
     {
         return -1.0f;
     }
+
+    int winner() const override {
+        return -player;
+    }
 };
 
 class TicTacProxy : public mcts::Proxy {
@@ -130,11 +132,12 @@ public:
     std::unique_ptr<CuNN> nn = nullptr;
 
     virtual std::shared_ptr<mcts::State> createState();
+    std::vector<mcts::Entry> createSamples();
     CuHead predict(const mcts::State* state);
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
     void train(const std::vector<mcts::Entry>& entries);
-
+    virtual Proxy* Clone() const override;
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
     CuMseLayer* valueHead = nullptr;

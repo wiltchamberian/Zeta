@@ -11,6 +11,7 @@
 #include "ThreeTac.h"
 #include "mnist.h"
 #include "LeNet.h"
+#include "Go.h"
 
 
 
@@ -29,25 +30,34 @@ int main()
     setting.simulationCount = 100;
     setting.batchSize = 128;
     setting.miniBatchSize = 128;
-    setting.trainStepsPerEpisode = 500;
-    setting.num_episodes = 20;
+    setting.trainStepsPerEpisode = 100;
+    setting.num_episodes = 200;
+    setting.sample_episodes = 20;
     setting.maxChessLength = 50;
+    setting.checkpointCount = 1;
+    setting.useDirichletNoise = true;
+    
+    setting.targetTemperature = 0.1;
+    setting.explorationCount = 5; // minus means not use
 
-    std::unique_ptr<TicTacProxy> proxy = std::make_unique<TicTacProxy>();
+    std::shared_ptr<ThreeTacProxy> proxy = std::make_shared<ThreeTacProxy>();
     proxy->createNetwork(0.01);
     proxy->nn->c = 0.0001;
 
+    setting.dirichletNoise = 10.0f / proxy->totalActionCount;
+
     mcts::Mcts mcts;
-    mcts.proxy = proxy.get();
+    mcts.mctsProxy = proxy;
+    mcts.trainProxy = proxy->Clone();
     mcts.setting = setting;
-    mcts.train();
+    mcts.run();
 
     //save
 
     int d[64];
     bool human = true;
     
-    std::unique_ptr<mcts::State> state = std::make_unique<TicTac>();
+    std::shared_ptr<mcts::State> state = std::make_shared<ThreeTacState>();
     state->Init();
     std::cout << "human first? (1:human 0:AI)\n";
     std::cin >> d[0];
@@ -70,7 +80,22 @@ int main()
             else {
                 std::cout << "winner is human!\n";
             }
-            break;
+            std::cout << std::endl;
+            std::cout << "new game!" << std::endl;
+            state->Init();
+
+            std::cout << "human first? (1:human 0:AI)\n";
+            std::cin >> d[0];
+            if (d[0] > 0) {
+                std::cout << "huamn first!\n";
+                human = true;
+            }
+            else {
+                std::cout << "Ai first!\n";
+                human = false;
+                state->player = -1;
+            }
+            state->printState();
         }
         if (human) {
             std::cout << "please choose your action!\n";

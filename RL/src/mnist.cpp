@@ -120,6 +120,7 @@ void mnist_test() {
 
     LeNet nn;
     nn.SetLearningRate(0.01);
+    nn.c = 0.0001;
     nn.createNetwork();
 
     int batchSize = 64;

@@ -15,6 +15,7 @@ public:
     virtual size_t GetActivationSize();
     virtual float* GetDelta();
     virtual size_t GetDeltaSize();
+    virtual CuLayer* Clone() const override;
     virtual void FetchResultToCpu();
     virtual void FetchGradToCpu();
     virtual void Print();

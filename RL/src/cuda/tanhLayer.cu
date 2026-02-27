@@ -75,6 +75,13 @@ size_t CuTanhLayer::GetDeltaSize() {
     return inputShape.NumElements();
 }
 
+CuLayer* CuTanhLayer::Clone() const {
+    CuTanhLayer* r = new CuTanhLayer();
+    r->inputShape = inputShape;
+    r->outputShape = outputShape;
+    return r;
+}
+
 void CuTanhLayer::FetchResultToCpu() {
 
 }

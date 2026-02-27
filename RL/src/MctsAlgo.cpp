@@ -1,4 +1,4 @@
-#include "MctsAlgo.h"
+ï»¿#include "MctsAlgo.h"
 
 #include "reluLayer.h"
 #include "tanhLayer.h"
@@ -6,13 +6,39 @@
 #include <random>
 
 namespace mcts{
-    //P(s; a) = (1 - epsilon ) * pa + epsilon * eta_a
-    std::vector<float> Node::getPolicyDistribution(float temperature) {
-        //9 actions;
-        std::vector<float> distribution(9, 0);
+    std::vector<float> Node::getPolicyDistribution(float temperature, int totalActionCount) {
+        std::vector<float> distribution(totalActionCount, 0);
         constexpr float alpha = 0.03f;  //eta ~ Dir(alpha)
         constexpr float epsilon = 0.25f;
-        if (temperature > 0) {
+        if (temperature == 1) {
+            float total = 0;
+            for (int i = 0; i < edges.size(); ++i) {
+                float v = edges[i]->visit_count;
+                distribution[edges[i]->action] = v;
+                total += v;
+            }
+            if (total > 0) {
+                for (int i = 0; i < distribution.size(); ++i) {
+                    distribution[i] /= total;
+                }
+            }
+            return distribution;
+        }
+        else if (temperature == 0) {
+            float total = 0;
+            float max = -10000;
+            int id = 0;
+            for (int i = 0; i < edges.size(); ++i) {
+                float v = edges[i]->visit_count;
+                if (v > max) {
+                    max = v;
+                    id = i;
+                }
+            }
+            distribution[edges[id]->action] = 1;
+            return distribution;
+        }
+        else {
             float total = 0;
             for (int i = 0; i < edges.size(); ++i) {
                 float v = std::pow(edges[i]->visit_count, 1 / temperature);
@@ -26,36 +52,6 @@ namespace mcts{
             }
             return distribution;
         }
-        else {
-            //// temperature = 0 Ê±£¬¼ÓÈë Dirichlet ÔëÉù
-            //int K = edges.size();
-            //std::vector<float> dir_noise(K, 0);
-            //std::gamma_distribution<float> gamma_dist(alpha, 1.0f);
-            //float sum = 0;
-            //for (int i = 0; i < K; ++i) {
-            //    dir_noise[i] = gamma_dist(gen);
-            //    sum += dir_noise[i];
-            //}
-            //for (int i = 0; i < K; ++i) dir_noise[i] /= sum; // ¹éÒ»»¯
-
-            float total = 0;
-            float max = -10000;
-            int id = 0;
-            for (int i = 0; i < edges.size(); ++i) {
-                float v = edges[i]->visit_count;
-                if (v > max) {
-                    max = v;
-                    id = i;
-                }
-            }
-            distribution[edges[id]->action] = 1;
-            float noise = 1.0f / edges.size();
-            for (int i = 0; i < edges.size(); ++i) {
-                distribution[edges[i]->action] = (1 - epsilon) * distribution[edges[i]->action] + epsilon * noise;
-            }
-            return distribution;
-        }
-
     }
 
     std::vector<Entry> ReplayBuffer::sample(size_t batch_size)
@@ -74,7 +70,7 @@ namespace mcts{
     }
 
 
-    void Mcts::backTrace(Node* node, float value) {
+    int Mcts::backTrace(Node* node, float value) {
         while (node->parent != nullptr) {
             value = -value;
             node->parentEdge->W += value;
@@ -83,37 +79,40 @@ namespace mcts{
             node->parent->subTreeDepth = std::max(node->parent->subTreeDepth, node->subTreeDepth + 1);
             node = node->parent;
         }
+        return node->subTreeDepth;
     }
 
+    void Mcts::expand(Node* cur, Proxy* proxy) {
+        CuHead head = proxy->predict(cur->state.get());
+        auto actions = cur->state->legalActions();
+        if (actions.empty()) {
+            assert(false);
+        }
 
-    void Mcts::simulate(Node* root) {
+        cur->expanded = true;
+
+        cur->edges.reserve(actions.size());
+        cur->children.resize(actions.size(), nullptr);
+
+        for (size_t i = 0; i < actions.size(); ++i)
+        {
+            std::unique_ptr<Edge> edge = std::make_unique<Edge>(actions[i], head.policy[i]);
+            cur->edges.push_back(std::move(edge));
+        }
+
+        backTrace(cur, head.value);
+    }
+
+    void Mcts::simulate(Node* root, Proxy* proxy) {
         Node* cur = root;
         while (true) {
             if (cur->state->is_terminal()) {
                 float value = cur->state->terminal_value();
-                backTrace(cur, value);
-
+                int depth = backTrace(cur, value);
                 return;
             }
             if (!cur->expanded) {
-                CuHead head = proxy->predict(cur->state.get());
-                auto actions = cur->state->legalActions();
-                if (actions.empty()) {
-                    assert(false);
-                }
-
-                cur->expanded = true;
-
-                cur->edges.reserve(actions.size());
-                cur->children.resize(actions.size());
-
-                for (size_t i = 0; i < actions.size(); ++i)
-                {
-                    std::unique_ptr<Edge> edge = std::make_unique<Edge>(actions[i], head.policy[i]);
-                    cur->edges.push_back(std::move(edge));
-                }
-
-                backTrace(cur, head.value);
+                expand(cur, proxy);
 
                 return;
             }
@@ -146,11 +145,11 @@ namespace mcts{
             assert(selectedEdge != nullptr);
 
             if (cur->children[best] == nullptr) {
-                cur->children[best] = std::make_unique<Node>();
+                cur->children[best] = pool.Alloc();
                 cur->children[best]->parent = cur;
                 cur->children[best]->parentEdge = selectedEdge;
             }
-            Node* child = cur->children[best].get();
+            Node* child = cur->children[best];
             child->state = cur->state->next_state(selectedEdge->action);
 
             cur = child;
@@ -158,22 +157,59 @@ namespace mcts{
 
     }
 
-    void Mcts::search() {
+    std::vector<float> sample_dirichlet(int n, float alpha)
+    {
+        static thread_local std::mt19937 gen(std::random_device{}());
+        std::gamma_distribution<float> gamma(alpha, 1.0f);
 
+        std::vector<float> samples(n);
+        float sum = 0.0f;
+
+        for (int i = 0; i < n; ++i) {
+            samples[i] = gamma(gen);
+            sum += samples[i];
+        }
+
+        // å½’ä¸€åŒ–
+        for (int i = 0; i < n; ++i) {
+            samples[i] /= sum;
+        }
+
+        return samples;
     }
 
-    void Mcts::selfPlay(ReplayBuffer& replay) {
+    void Mcts::addDirichletNoise(Node* cur) {
+        int n = cur->edges.size();
+        std::vector<float> noise = sample_dirichlet(n, setting.dirichletNoise);
+
+        for (int i = 0; i < n; ++i) {
+            cur->edges[i]->prior =
+                (1 - setting.epsilon) * cur->edges[i]->prior
+                + setting.epsilon * noise[i];
+        }
+    }
+
+    int Mcts::selfPlay(ReplayBuffer& replay, std::shared_ptr<Proxy> proxy) {
         std::vector<Tensor> labels;
         std::vector<std::shared_ptr<State>> states;
 
-        std::unique_ptr<Node> cur = std::make_unique<Node>();
+        Node* cur = pool.Alloc();
+
         cur->state = proxy->createState();
 
         int chessCount = 0;
         while (!cur->state->is_terminal()) {
+            //as paper, add dirichlet noise here
 
+            if (setting.useDirichletNoise) {
+                if (!cur->expanded) {
+                    expand(cur, proxy.get());
+                    addDirichletNoise(cur);
+                }
+            }
+            
             for (int i = 0; i < setting.simulationCount; ++i) {
-                simulate(cur.get());
+                simulate(cur, proxy.get());
             }
             //std::cout << "Depth: " << cur->state.depth << " visits: ";
             //for (auto& e : cur->edges)
@@ -181,30 +217,28 @@ namespace mcts{
             //std::cout << std::endl;
 
             //float temperature = cur->state->depth < 10 ? 1 : 0;
-            float temperature = 0.1;
+            float temperature = chessCount < setting.explorationCount ? 1 : setting.targetTemperature;
 
             //action distribution
-            std::vector<float> policy_dis = cur->getPolicyDistribution(temperature);
+            std::vector<float> policy_dis = cur->getPolicyDistribution(temperature , proxy->totalActionCount);
 
             std::discrete_distribution<> dist(policy_dis.begin(), policy_dis.end());
             int selectedAction = dist(gen);
 
             //record state
-            Tensor policy(9);
+            Tensor policy(proxy->totalActionCount);
             policy.setData(policy_dis);
             labels.push_back(policy);
             states.push_back(cur->state);
 
             bool bingo = false;
+            mcts::Node* child = nullptr;
             for (int i = 0; i < cur->edges.size(); ++i) {
                 if (cur->edges[i]->action == selectedAction) {
-                    auto child = std::move(cur->children[i]);
+                    child = cur->children[i];
                     cur->children[i] = nullptr;
-                    cur->children.clear();
-                    cur->edges.clear();
-                    cur = std::move(child);
-                    cur->parent = nullptr;
-                    cur->parentEdge = nullptr;
+                    child->parent = nullptr;
+                    child->parentEdge = nullptr;
                     bingo = true;
                     break;
                 }
@@ -212,6 +246,8 @@ namespace mcts{
             if (!bingo) {
                 assert(false);
             }
+            pool.FreeTree(cur);
+            cur = child;
             //state = state.next_state(selectedAction);
 
             chessCount += 1;
@@ -219,7 +255,9 @@ namespace mcts{
                 break;
             }
         }
-        int winner = (chessCount >= setting.maxChessLength) ? 0 : (-cur->state->player);
+        int winner = (chessCount >= setting.maxChessLength) ? 0 : cur->state->winner();
+        //float terminalValue = cur->state->terminal_value();
+        replay.lock();
         for (int i = states.size() - 1; i >= 0/*states.size()-3*/; --i) {
             Entry entry;
             entry.label = labels[i];
@@ -228,70 +266,104 @@ namespace mcts{
                 entry.value = 0;
             }
             else {
+                //entry.value = cur->state->terminal_value();
                 entry.value = (winner == states[i]->player) ? 1 : -1;
             }
-
             replay.entries.push_back(entry);
         }
+        replay.unlock();
+        pool.FreeTree(cur);
+
+        return chessCount;
     }
 
     void Mcts::train() {
-        //alpha-go-zero:
-        //minibatch: 2048
-        //checkpoint: 1000 iteration
+        int step = 0;
+        int bufferCount = 0;
+        while (true) {
+            int doubleStop = 0;
+            if (stop) {
+                doubleStop += 1;
+            }
+            ReplayBuffer buf = bufferQueue.pop_s();
+            if (!buf.entries.empty()) {
+                for (int i = 0; i < setting.trainStepsPerEpisode; ++i) {
+                    trainProxy->train(buf.entries);
+                    step += 1;
+                }
+                bufferCount += 1;
+                auto proxy = std::shared_ptr<Proxy>(trainProxy->Clone());
+                trainProxy->version += 1;
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    std::atomic_store(&mctsProxy, proxy);
+                    globalVersion++;
+                }
+                cv.notify_all();
+            }
+            else {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            if (stop) {
+                doubleStop += 1;
+            }
+            if (doubleStop) {
+                break;
+            }
+        }
+        std::cout << "step:" << step << std::endl;
+        std::cout << "bufferCount:" << bufferCount << std::endl;
+    }
+
+    void Mcts::run() {
         InitRandom();
 
-        ReplayBuffer buffer;
+        int localVersion = globalVersion.load();
+        std::shared_ptr<Proxy> proxy = mctsProxy;
+        std::thread th([this]() {
+            train();
+            });
+
+        ReplayBuffer tmpBuffer;
+        int maxLength = 0;
         for (int episode = 0; episode < setting.num_episodes; ++episode) {
+            int length = selfPlay(tmpBuffer, proxy);
+            maxLength = std::max<int>(maxLength, length);
+            if (tmpBuffer.entries.size() > setting.batchSize) {
 
-            selfPlay(buffer);
+                bufferQueue.append_s(std::move(tmpBuffer));
 
-            if (buffer.entries.size() >= setting.batchSize) {
-                std::uniform_int_distribution<size_t> dist(
-                    0, buffer.entries.size() - 1);
+                //wait for a new trained proxy
+                std::unique_lock<std::mutex> lock(mtx);
+                cv.wait(lock, [&] {
+                    return globalVersion.load() != localVersion;
+                    });
+                localVersion = globalVersion.load();
 
-                //print last 32 buffers
-                //int t = 0;
-                //for (int k = buffer.entries.size() - 1; k >= 0; --k) {
-                //    TicTac state = TicTac::FromTensor(buffer.entries[k].state);
-                //    state.printState();
-                //    std::cout << "value:" << buffer.entries[k].value << std::endl;
-                //    t++;
-                //    if (t == 32) {
-                //        break;
-                //    }
-                //}
+                proxy = std::atomic_load(&mctsProxy);
 
-                std::vector<Entry> miniBatch;
-                miniBatch.reserve(setting.miniBatchSize);
-
-                for (size_t i = 0; i < setting.miniBatchSize; ++i) {
-                    size_t idx = dist(gen);
-                    miniBatch.push_back(buffer.entries[idx]);
-                }
-
-                for (int k = 0; k < setting.trainStepsPerEpisode; ++k) {
-                    proxy->train(miniBatch);
-                }
-
-                buffer.entries.clear();
+                std::cout << "proxy_version:" << proxy->version << std::endl;
+                std::cout << "max_length:" << maxLength << std::endl;
             }
-
-            //if (buffer.entries.size() > batchSize) {
-            //    // ¶ªµôÇ°ÃæµÄ¾ÉÑù±¾
-            //    buffer.entries.erase(buffer.entries.begin(), buffer.entries.end() - batchSize);
-            //}
-
-            //if (!buffer.entries.empty()) {
-            //    for (int k = 0; k < trainStepsPerEpisode; ++k) {
-            //        proxy->train(buffer.entries); // Ö±½ÓÓÃ buffer.entries£¨ÏÖÔÚ¾ÍÊÇ×îÐÂ batchSize ¸ö£©
-            //    }
+            //if ((episode+1) % setting.sample_episodes == 0) {
+            //    //wait for a new trained proxy
+            //    std::unique_lock<std::mutex> lock(mtx);
+            //    cv.wait(lock, [&] {
+            //        return globalVersion.load() != localVersion;
+            //        });
+            //    localVersion = globalVersion.load();
             //}
         }
+
+        stop = true;
+        th.join();
+
         return;
     }
 
-    std::unique_ptr<State> Mcts::play(const std::unique_ptr<State>& state) const {
+    std::shared_ptr<State> Mcts::play(const std::shared_ptr<State>& state) const {
+        auto proxy = std::atomic_load(&mctsProxy);
+        
         CuHead head = proxy->predict(state.get());
         auto actions = state->legalActions();
         int id = 0;
@@ -307,7 +379,7 @@ namespace mcts{
         return result;
     }
 
-    std::unique_ptr<State> Mcts::randomPlay(const std::unique_ptr<State>& state) const {
+    std::shared_ptr<State> Mcts::randomPlay(const std::shared_ptr<State>& state) const {
         auto legalActions = state->legalActions();
         std::uniform_int_distribution<size_t> dist(0, legalActions.size() - 1);
         //int act = dis(gen);

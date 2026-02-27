@@ -58,8 +58,8 @@ std::vector<int> ThreeTacState::legalActions() const {
     return actions;
 }
 
-std::unique_ptr < mcts::State > ThreeTacState::next_state(int action) const {
-    std::unique_ptr <ThreeTacState> st = std::make_unique<ThreeTacState>();
+std::shared_ptr < mcts::State > ThreeTacState::next_state(int action) const {
+    std::shared_ptr <ThreeTacState> st = std::make_shared<ThreeTacState>();
     *st = *this;
     st->board[action] = player;
     st->player = -st->player;
@@ -124,6 +124,29 @@ float ThreeTacState::terminal_value() const {
     return 0;
 }
 
+int ThreeTacState::winner() const {
+    int opp = -player;   // 对方棋子
+
+    // 8 条可能的三连
+    static const int win_lines[8][3] = {
+        {0,1,2}, {3,4,5}, {6,7,8},      // 行
+        {0,3,6}, {1,4,7}, {2,5,8},      // 列
+        {0,4,8}, {2,4,6}                // 对角线
+    };
+
+    for (int i = 0; i < 8; ++i)
+    {
+        if (board[win_lines[i][0]] == opp &&
+            board[win_lines[i][1]] == opp &&
+            board[win_lines[i][2]] == opp)
+        {
+            return opp;
+        }
+    }
+
+    return 0;
+}
+
 char ThreeTacState::character(int p) const {
     static char chs[3] = { 'O','.' ,'X' };
     return chs[p + 1];
@@ -160,6 +183,7 @@ std::shared_ptr<mcts::State> ThreeTacProxy::createState() {
 }
 
 void ThreeTacProxy::createNetwork(float learningRate) {
+    totalActionCount = 9;
     nn = std::make_unique<CuNN>();
     nn->SetLearningRate(learningRate);
 
@@ -186,3 +210,17 @@ void ThreeTacProxy::createNetwork(float learningRate) {
 
     nn->AllocDeviceMemory();
 }
+
+mcts::Proxy* ThreeTacProxy::Clone() const {
+    ThreeTacProxy* proxy = new ThreeTacProxy();
+    proxy->version = version + 1;
+    proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
+    proxy->root = this->root->ref;
+    proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);
+    proxy->valueHead = dynamic_cast<CuMseLayer*>(this->valueHead->ref);
+    proxy->totalActionCount = totalActionCount;
+    this->nn->CleanRefs();
+    return proxy;
+}
+
+

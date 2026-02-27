@@ -207,6 +207,12 @@ public:
         return *this;
     }
 
+    TensorT<T> Clone() const {
+        TensorT<T> ten(this->shape);
+        ten.copy(*this); //FIX ME , a quick hack
+        return ten;
+    }
+
     bool isEmpty() const{
         return (numel() == 0)||(data_==nullptr);
     }

@@ -109,6 +109,7 @@
   <ItemGroup>
     <ClCompile Include="src\Activation.cpp" />
     <ClCompile Include="src\fp16_emu.cpp" />
+    <ClCompile Include="src\Go.cpp" />
     <ClCompile Include="src\Layer.cpp" />
     <ClCompile Include="src\LeNet.cpp" />
     <ClCompile Include="src\mcts.cpp" />
@@ -130,6 +131,7 @@
     <ClInclude Include="src\cuda\reluLayer.h" />
     <ClInclude Include="src\cuda\tanhLayer.h" />
     <ClInclude Include="src\cuda\tensor_operator.h" />
+    <ClInclude Include="src\Go.h" />
     <ClInclude Include="src\Layer.h" />
     <ClInclude Include="src\LeNet.h" />
     <ClInclude Include="src\matrix.h" />

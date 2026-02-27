@@ -92,6 +92,15 @@ size_t MaxPool2d::GetDeltaSize() {
     return outputShape.NumElements();
 }
 
+CuLayer* MaxPool2d::Clone() const {
+    MaxPool2d* r = new MaxPool2d();
+    r->inputShape = inputShape;
+    r->outputShape = outputShape;
+    r->h = h;
+    r->w = w;
+    return r;
+}
+
 void MaxPool2d::FetchResultToCpu() {
 
 }
