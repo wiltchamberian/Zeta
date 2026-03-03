@@ -2,6 +2,7 @@
 #include "reluLayer.h"
 #include "tanhLayer.h"
 
+
 void ThreeTacState::Init() {
     for (int i = 0; i < 9; ++i) {
         board[i] = 0;

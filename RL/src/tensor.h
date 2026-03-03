@@ -1,6 +1,5 @@
 ﻿#pragma once 
 
-#include "device_launch_parameters.h"
 #include <iomanip>
 #include <vector>
 #include <memory>

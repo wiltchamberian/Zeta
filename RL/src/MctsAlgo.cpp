@@ -396,4 +396,64 @@ namespace mcts{
         gen.seed(seed);
     }
 
+
+    void Mcts::MinMax(Node* root) {
+
+        visits.clear();
+        values.clear();
+
+        std::vector<Node*> states;
+        states.push_back(root);
+        while (!states.empty()) {
+            Node* t = states.back();
+            uint64_t key = t->state->Hash();
+            if (t->state->is_terminal()) {
+                t->expanded = true;
+                visits[key] = VISITIED;
+                values[key] = -t->state->player;
+                states.pop_back();
+                continue;
+            }
+            else if (t->expanded == false) {
+                auto actions = t->state->legalActions();
+                t->expanded = true;
+                visits[key] = VISITIED;
+                for (int k = actions.size() - 1; k >= 0; --k) {
+                    Node* nd = pool.Alloc();
+                    nd->parent = t;
+                    nd->subTreeDepth = t->subTreeDepth + 1;
+                    nd->state = t->state->next_state(actions[k]);
+                    states.push_back(nd);
+                }
+            }
+            else {
+                auto actions = t->state->legalActions();
+                for (int k = 0; k < actions.size(); ++k) {
+                    auto state = t->state->next_state(actions[k]);
+                    auto hash = state->Hash();
+                    int v = values[hash];
+                    if (t->state->player == 1) {
+                        values[key] = std::max(v, values[key]);
+                    }
+                    else {
+                        values[key] = std::min(v, values[key]);
+                    }
+                }
+                states.pop_back();
+            }
+
+        }
+
+        for (auto it : visits) {
+            int v = values[it.first];
+            auto st = root->state->next_state(0);
+            st->UnHash(it.first);
+            st->printState();
+            std::cout << "value:" << v << std::endl;
+
+        }
+
+
+    }
 }
+

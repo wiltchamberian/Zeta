@@ -1,15 +1,22 @@
-#pragma once
-#include <ranges>
-#include <mutex>
-#include <algorithm>
-#include <memory>
-#include <vector>
-#include <random>
+//export module core.mctsalgo;
+
 #include <stack>
+#include <random>
+#include <thread>
+#include <mutex>
+#include <unordered_map>
+#include <condition_variable>
+
 #include "CuNN.h"
 #include "tensor.h"
 
 namespace mcts {
+
+    enum VisitState {
+        UNVISITED = 0,
+        VISITIED,
+    };
+
 
     struct Entry {
         Tensor label;
@@ -72,6 +79,8 @@ namespace mcts {
         virtual int winner() const {
             return 0;
         }
+        virtual uint64_t Hash() const { return 0;  }
+        virtual void UnHash(uint64_t hash) { return;  }
         int player = 1;
         int depth = 0;
     };
@@ -137,6 +146,11 @@ namespace mcts {
 
         NodePool(int siz = 1000) : chunk_size(siz) {
 
+        }
+
+        void resize(int siz) {
+            Clear();
+            chunk_size = siz;
         }
 
         void Free(_T* t) {
@@ -305,14 +319,14 @@ namespace mcts {
         int trainStepsPerEpisode = 20;
         int batchSize = 100;
         int miniBatchSize = 32;
-        float c_puct = 1.0;
+        float c_puct = 1.0f;
         int maxChessLength = 20;
-        float dirichletNoise = 0.03;
-        float epsilon = 0.25;
+        float dirichletNoise = 0.03f;
+        float epsilon = 0.25f;
         int explorationCount = 3;
         int checkpointCount = 50;
         bool useDirichletNoise = true;
-        float targetTemperature = 0.1;
+        float targetTemperature = 0.1f;
     };
 
     class Mcts {
@@ -334,10 +348,12 @@ namespace mcts {
         void InitRandom();
         void InitRandom(uint32_t seed);
         void expand(Node* root, Proxy* proxy);
+
+        void MinMax(Node* state);
+
         std::shared_ptr<Proxy> mctsProxy = nullptr; //for mcts simulation
         Proxy* trainProxy = nullptr;
         std::mt19937 gen;
-        //ReplayBuffer buffer;
         BufferQueue bufferQueue;
         Setting setting;
         std::atomic<bool> stop;
@@ -347,6 +363,10 @@ namespace mcts {
         std::atomic<int> globalVersion;
         std::mutex mtx;
         std::condition_variable cv;
+
+        //for min max
+        std::unordered_map<uint64_t, mcts::VisitState> visits;
+        std::unordered_map<uint64_t, int> values;
     };
 
 }

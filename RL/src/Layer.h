@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "tensor.h"
+#include <device_launch_parameters.h>
 
 
 class Layer
@@ -16,11 +17,7 @@ public:
   :in_dim(input)
   ,out_dim(output)
   {
-    //weights.height = output;
-    //weights.width = input;
-    //weights.data_.resize(input * output, 0);
     weights = Tensor(output, input); //reverse order to level up computation performance
-
     b = Tensor(output);
   }
 
@@ -57,6 +54,7 @@ public:
   int in_dim;
   int out_dim;
 
+  
 };
 
 //friend Layer operator + (const Layer& l1, const Layer& l2);

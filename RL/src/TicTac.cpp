@@ -1,8 +1,9 @@
-#include "TicTac.h"
+﻿#include "TicTac.h"
 #include "reluLayer.h"
 #include "tanhLayer.h"
 #include <algorithm>
 #include <random>
+#include <queue>
 
 std::shared_ptr<mcts::State> TicTac::next_state(int action) const
 {
@@ -43,8 +44,130 @@ std::shared_ptr<mcts::State> TicTac::next_state(int action) const
     s->board[endPos] = player;
     
     s->player = -player;
-    s->depth++;
+    s->depth = depth+1;
     return s;
+}
+
+TicTac TicTac::NextState(int action) const {
+    TicTac s;
+    for (int i = 0; i < 9; ++i) {
+        s.board[i] = board[i];
+    }
+    s.expanded = false;
+
+    //action
+    int playerId = action / 3;
+    int targetId = action % 3;
+    int playerRover = 0;
+    int targetRover = 0;
+    int count = 0;
+
+    int startPos = 0;
+    int endPos = 0;
+    for (int i = 0; i < 9; ++i)
+    {
+        if (s.board[i] == player) {
+            if (playerRover == playerId) {
+                startPos = i;
+                count += 1;
+            }
+            playerRover++;
+        }
+        if (s.board[i] == 0) {
+            if (targetRover == targetId) {
+                endPos = i;
+                count += 1;
+            }
+            targetRover++;
+        }
+        if (count == 2) {
+            break;
+        }
+    }
+
+    s.board[startPos] = 0;
+    s.board[endPos] = player;
+
+    s.player = -player;
+    s.depth = depth + 1;
+    return s;
+}
+
+TicTac* TicTac::NextState(int action, mcts::NodePool<TicTac>& pool) const {
+    TicTac* s = pool.Alloc();
+    for (int i = 0; i < 9; ++i) {
+        s->board[i] = board[i];
+    }
+    s->expanded = false;
+
+    //action
+    int playerId = action / 3;
+    int targetId = action % 3;
+    int playerRover = 0;
+    int targetRover = 0;
+    int count = 0;
+
+    int startPos = 0;
+    int endPos = 0;
+    for (int i = 0; i < 9; ++i)
+    {
+        if (s->board[i] == player) {
+            if (playerRover == playerId) {
+                startPos = i;
+                count += 1;
+            }
+            playerRover++;
+        }
+        if (s->board[i] == 0) {
+            if (targetRover == targetId) {
+                endPos = i;
+                count += 1;
+            }
+            targetRover++;
+        }
+        if (count == 2) {
+            break;
+        }
+    }
+
+    s->board[startPos] = 0;
+    s->board[endPos] = player;
+
+    s->player = -player;
+    s->depth = depth + 1;
+
+
+    return s;
+}
+
+uint64_t TicTac::Hash() const {
+    uint64_t h = 0;
+    for (int i = 0; i < 9; ++i)
+    {
+        h = h * 3 + (board[i] + 1);
+    }
+
+    h = h * 2 + (player == 1 ? 1 : 0);
+    return h;
+}
+
+void TicTac::UnHash(uint64_t h)  {
+    int playerBit = h % 2;
+    player = (playerBit == 1 ? 1 : -1);
+
+    h /= 2;
+
+    for (int i = 8; i >= 0; --i)
+    {
+        int cellEncoded = h % 3;
+        h /= 3;
+
+        board[i] = cellEncoded - 1;
+    }
+
+    depth = 0;
+    expanded = false;
+    return;
 }
 
 bool TicTac::legal(int i, int j) const {
@@ -326,9 +449,370 @@ mcts::Proxy* TicTacProxy::Clone() const {
     return proxy;
 }
 
-std::vector<mcts::Entry> TicTacProxy::createSamples() {
-    return {};
+uint64_t Hash(const TicTac& s)
+{
+    uint64_t h = 0;
+    for (int i = 0; i < 9; ++i)
+    {
+        h = h * 3 + (s.board[i] + 1);
+        // -1 -> 0
+        //  0 -> 1
+        //  1 -> 2
+    }
 
+    // 再加上当前轮到谁
+    h = h * 2 + (s.player == 1 ? 1 : 0);
+    return h;
+}
+
+TicTac UnHash(uint64_t h)
+{
+    TicTac s;
+
+    int playerBit = h % 2;
+    s.player = (playerBit == 1 ? 1 : -1);
+
+    h /= 2;  
+
+    for (int i = 8; i >= 0; --i)
+    {
+        int cellEncoded = h % 3;
+        h /= 3;
+
+        s.board[i] = cellEncoded - 1;
+    }
+
+    return s;
+}
+
+void TicTacProxy::MinMax(TicTac root) {
+    visits.clear();
+    values.clear();
+
+    std::vector<TicTac> states;
+    states.push_back(root);
+    while (!states.empty()) {
+        TicTac& t = states.back();
+        uint64_t key = Hash(t);
+        if (t.is_terminal()) {
+            t.expanded = true;
+            visits[key] = mcts::VISITIED;
+            values[key] = -t.player;
+            states.pop_back();
+            continue;
+        }
+        else if (t.expanded == false) {
+            if( visits[key] == mcts::VISITIED) {
+                //
+                states.pop_back();
+                continue;
+            }
+            else {
+                auto actions = t.legalActions();
+                t.expanded = true;
+                visits[key] = mcts::VISITIED;
+                TicTac tmp = t;
+                for (int k = actions.size() - 1; k >= 0; --k) {
+                    TicTac state = tmp.NextState(actions[k]);
+                    states.push_back(state);//may make t invalid!
+                }
+            }
+        }
+        else {
+            auto actions = t.legalActions();
+            for (int k = 0; k < actions.size(); ++k) {
+                TicTac state = t.NextState(actions[k]);
+                auto hash = Hash(state);
+                int v = values[hash];
+                if (t.player == 1) {
+                    values[key] = std::max(v, values[key]);
+                }
+                else {
+                    values[key] = std::min(v, values[key]);
+                }
+            }
+            states.pop_back();
+        }
+        
+    }
+
+    for (auto it : visits) {
+        int v = values[it.first];
+        TicTac state = UnHash(it.first);
+        state.printState();
+        std::cout << "value:" << v << std::endl;
+
+    }
+
+}
+
+std::vector<TicTac> TicTacProxy::ComputeAllStates() {
+    std::vector<TicTac> res;
+    visits.clear();
+    std::queue<TicTac> st;
+    TicTac root;
+    st.push(root);
+    while (!st.empty()) {
+        TicTac t = st.front();
+        uint64_t h = t.Hash();
+        if (visits.find(h) != visits.end()) {
+            st.pop();
+            continue;
+        }
+        visits[h] = mcts::VISITIED;
+        t.value = 0;
+        t.children.clear();
+        t.depth = 0;
+        res.push_back(t);
+        auto actions = t.legalActions();
+        for (int i = 0; i < actions.size(); ++i) {
+            TicTac state = t.NextState(actions[i]);
+            st.push(state);
+        }
+        st.pop();
+    }
+    visits.clear();
+    return res;
+}
+
+//该实现的问题在于共享hash,但是因为存在重复状态，同一个hash
+//可能对应不统计节点，修改其他节点的hash会导致出错
+int TicTacProxy::Discover(const TicTac& t, int depth) {
+    //test board
+    TicTac t0 = t;
+    int h0 = t.Hash();
+
+    TicTac t1; 
+    t1.board = { 1,0,-1,1,1,0,-1,-1,0};
+    t1.player = -1;
+    int h1 = t1.Hash();
+
+    TicTac t2;
+    t2.board = { 1,1,-1,0,1,0,-1,-1,0 };
+    t2.player = -1;
+    int h2 = t2.Hash();
+
+    TicTac t3;
+    t3.board = { 1,1,-1,-1,1,0,0,-1,0 };
+    t3.player = 1;
+    int h3 = t3.Hash();
+
+    TicTac t4;
+    t4.board = { 1,1,-1,-1,0,1,0,-1,0 };
+    t4.player = -1;
+    int h4 = t4.Hash();
+
+    TicTac t5;
+    t5.board = { 1,1,-1,-1,-1,1,0,0,0 };
+    t5.player = 1;
+    int h5 = t5.Hash();
+
+    TicTac t6;
+    t6.board = { 1,1,-1,-1,-1,0,0,0,1 };
+    t6.player = -1;
+    int h6 = t6.Hash();
+
+    TicTac t7;
+    t7.board = { 1,1,-1,-1,-1,-1,0,0,0 };
+    t7.player = 1;
+    int h7 = t7.Hash();
+
+    visits.clear();
+    values.clear();
+    std::stack<TicTac> stack;
+    stack.push(t);
+    while (!stack.empty()) {
+        TicTac& t = stack.top();
+        uint64_t h = t.Hash();
+
+        //if (values.find(h) != values.end()) {
+        //    stack.pop();
+        //    continue;
+        //}
+
+        if (t.is_terminal()) {
+            values[h] = -t.player;
+            stack.pop();
+            continue;
+        }
+        if (t.depth == depth) {
+            values[h] = 0;
+            stack.pop();
+            continue;
+        }
+        
+        if (!t.expanded) {
+            t.expanded = true;
+            auto actions = t.legalActions();
+            TicTac tmp = t;
+            for (int i = 0; i < actions.size(); ++i) {
+                TicTac state  = tmp.NextState(actions[i]);
+                state.depth = tmp.depth + 1;
+                stack.push(state);
+            }
+        }
+        else if (t.expanded) {
+
+            auto actions = t.legalActions();
+            int vs = 0;
+            if (t.player == 1) {
+                vs = -1;
+            }
+            else {
+                vs = 1;
+            }
+            if (h == t1.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t2.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t3.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t4.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t5.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t6.Hash()) {
+                std::cout << "abc\n";
+            }
+            else if (h == t7.Hash()) {
+                std::cout << "abc\n";
+            }
+            for (int i = 0; i < actions.size(); ++i) {
+                TicTac state = t.NextState(actions[i]);
+                uint64_t hash = state.Hash();
+                if (t.player == 1) {
+                    vs = std::max<int>(vs, values[hash]);
+                }
+                else {
+                    vs = std::min<int>(vs, values[hash]);
+                }
+            }
+            values[h] = vs;
+
+            
+           
+            stack.pop();
+        }
+    }
+    uint64_t hash = t.Hash();
+    return values[hash];
+}
+
+bool TicTacProxy::UpdateValue(TicTac* t,int h) {
+    auto iter = mapping.find(h);
+    if (iter != mapping.end()) {
+        if (iter->second->depth <= t->depth) {
+            t->value = iter->second->value;
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    else {
+        return false;
+    }
+}
+
+int TicTacProxy::DiscoverAlphaBeta(TicTac* t, int depth) {
+    std::stack<TicTac*> stack;
+    stack.push(t);
+    //mapping.clear();
+    while (!stack.empty()) {
+        TicTac* t = stack.top();
+        int h = t->Hash();
+        if (t->is_terminal()) {
+            t->value = -t->player;
+            stack.pop();
+
+            //mapping[h] = t;
+
+            UpdateAlphaBeta(t, -t->player);
+            continue;
+        }
+        if (t->depth == depth) {
+            t->value = 0;
+            stack.pop();
+            //mapping[h] = t;
+
+            UpdateAlphaBeta(t, 0);
+            continue;
+        }
+        if (!t->expanded) {
+            //bool ok = UpdateValue(t, h);
+            //if (ok) {
+            //    stack.pop();
+            //    continue;
+            //}
+
+            if (t->parent != nullptr) {
+                //pruning
+                if (t->parent->alpha >= t->parent->beta) {
+                    stack.pop();
+                    continue;
+                }
+                //deliver alpha, beta
+                t->alpha = t->parent->alpha;
+                t->beta = t->parent->beta;
+            }
+            
+
+            t->expanded = true;
+            auto actions = t->legalActions();
+            for (int i = 0; i < actions.size(); ++i) {
+                TicTac* state = t->NextState(actions[i], pool);
+                t->children.push_back(state);
+                state->depth = t->depth + 1;
+                state->parent = t;
+                stack.push(state);
+            }
+        }
+        else if (t->expanded) {
+            //mapping[h] = t;
+            auto actions = t->legalActions();
+            if (t->player == 1) {
+                t->value = -1;
+            }
+            else {
+                t->value = 1;
+            }
+            for (int i = 0; i < actions.size(); ++i) {
+                TicTac* state = t->children[i];
+                if (t->player == 1) {
+                    t->value = std::max<int>(t->value, state->value);
+                }
+                else {
+                    t->value = std::min<int>(t->value, state->value);
+                }
+            }
+            stack.pop();
+
+            UpdateAlphaBeta(t, t->value);
+ 
+        }
+    }
+    return t->value;
+
+}
+
+void TicTacProxy::UpdateAlphaBeta(TicTac* t, int v) {
+    if (t->parent != nullptr) {
+        if (t->player == 1) {
+            //parent is min node
+            t->parent->beta = std::min<int>(v, t->parent->beta);
+        }
+        else if (t->player == -1) {
+            t->parent->alpha = std::max<int>(t->parent->alpha, v);
+        }
+        else {
+            assert(false);
+        }
+    }
 }
 
 

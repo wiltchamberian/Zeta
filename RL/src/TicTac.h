@@ -2,7 +2,10 @@
 #include <memory>
 #include <vector>
 #include <random>
+#include <map>
+#include <array>
 #include "MctsAlgo.h"
+#include "binary.h"
 
 struct Action {
     Action() {}
@@ -15,7 +18,9 @@ struct Action {
 class TicTac: public mcts::State {
 public:
     TicTac() {
-        memset(board, 0, 9 * sizeof(char));
+        for (int i = 0; i < 9; ++i) {
+            board[i] = 0;
+        }
         board[0] = 1;
         board[1] = 1;
         board[2] = 1;
@@ -23,9 +28,26 @@ public:
         board[7] = -1;
         board[8] = -1;
     }
-    char board[9];
+    TicTac(const TicTac& t) {
+        for (int i = 0; i < 9; ++i) {
+            board[i] = t.board[i];
+            player = t.player;
+            depth = t.depth;
+            expanded = t.expanded;
+        }
+    }
+    std::array<char, 9> board;
+    bool expanded = false;
+    //alpha beta pruning
+    int alpha = -1;
+    int beta = 1;
+    TicTac* parent = nullptr;
+    int value = 0;
+    std::vector<TicTac*> children;
     void Init() override {
-        memset(board, 0, 9 *sizeof(char));
+        for (int i = 0; i < 9; ++i) {
+            board[i] = 0;
+        }
         board[0] = 1;
         board[1] = 1;
         board[2] = 1;
@@ -77,6 +99,10 @@ public:
     bool legalAction(int action) const;
     std::vector<int> legalActions() const override;
     std::shared_ptr<mcts::State> next_state(int action) const;
+    TicTac NextState(int action) const;
+    TicTac* NextState(int action, mcts::NodePool<TicTac>& pool) const;
+    uint64_t Hash() const override;
+    void UnHash(uint64_t hash) override;
     bool is_terminal() const
     {
         if (board[4] == (-player)) {
@@ -86,6 +112,9 @@ public:
                 }
             }
         }
+        return false;
+    }
+    bool near_terminal() const {
         return false;
     }
 
@@ -109,12 +138,43 @@ public:
         std::cout << character(board[2]) << std::endl;
 
         if (player == 1) {
-            std::cout << "player:human" << std::endl;
+            std::cout << "player:1,value:" << value << std::endl;
         }
         else {
-            std::cout << "player:AI" << std::endl;
+            std::cout << "player:-1,value:" << value << std::endl;
         }
+    }
 
+    void WriteBinary(BinaryStream& stream) const {
+        for (int i = 0; i < board.size(); ++i) {
+            stream.write(board[i]);
+        }
+        stream.write(player);
+        stream.write(value);
+    }
+
+    void ReadFromBinary(BinaryStream& stream) {
+        for (int i = 0; i < board.size(); ++i) {
+            board[i] = stream.read<char>();
+        }
+        player = stream.read<int>();
+        value = stream.read<int>();
+    }
+
+    static void WriteBinary(std::vector<TicTac>& tictacs, BinaryStream& stream) {
+        stream.write<size_t>(tictacs.size());
+        for (int i = 0; i < tictacs.size(); ++i) {
+            tictacs[i].WriteBinary(stream);
+        }
+    }
+
+    static std::vector<TicTac> ReadBinary(BinaryStream& stream) {
+        size_t siz = stream.read<size_t>();
+        std::vector<TicTac> vec(siz);
+        for (int i = 0; i < siz; ++i) {
+            vec[i].ReadFromBinary(stream);
+        }
+        return vec;
     }
 
     float terminal_value() const
@@ -127,19 +187,35 @@ public:
     }
 };
 
+
 class TicTacProxy : public mcts::Proxy {
 public:
     std::unique_ptr<CuNN> nn = nullptr;
 
     virtual std::shared_ptr<mcts::State> createState();
-    std::vector<mcts::Entry> createSamples();
     CuHead predict(const mcts::State* state);
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
     void train(const std::vector<mcts::Entry>& entries);
     virtual Proxy* Clone() const override;
+
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
     CuMseLayer* valueHead = nullptr;
+
+    //minmax 算法不灵，换一种思路，先求出所有局面
+    //然后对每一个局面判断是否是必输走法，方法就是指定固定深度
+    std::vector<TicTac> ComputeAllStates();
+    int Discover(const TicTac& t, int depth);
+    int DiscoverAlphaBeta(TicTac* t, int depth);
+    bool UpdateValue(TicTac* t, int h);
+    void UpdateAlphaBeta(TicTac* t, int v);
+    void MinMax(TicTac state);
+    
+    std::map<uint64_t, mcts::VisitState> visits;
+    std::map<uint64_t, int> values;
+    std::unordered_map<uint64_t, TicTac*> mapping;
+
+    mcts::NodePool<TicTac> pool;
 };
 

@@ -13,6 +13,38 @@
 #include "LeNet.h"
 #include "Go.h"
 
+void GenAllTicTacSamples() {
+    TicTacProxy tp;
+    TicTac b;
+    b.board[0] = 0;
+    b.board[1] = 1;
+    b.board[2] = 1;
+    b.board[3] = -1;
+    b.board[4] = 1;
+    b.board[5] = 0;
+    b.board[6] = -1;
+    b.board[7] = 0;
+    b.board[8] = -1;
+    b.player = 1;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    int c = tp.DiscoverAlphaBeta(&b, 10);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Time: " << duration.count() << " ms\n";
+
+    std::vector<TicTac> states = tp.ComputeAllStates();
+    std::vector<int> values(states.size(), 0);
+    for (int i = 0; i < states.size(); ++i) {
+        int value = tp.DiscoverAlphaBeta(&states[i], 10);
+        tp.pool.Clear();
+        //states[i].printState();
+    }
+    //save to file
+    BinaryStream bs;
+    TicTac::WriteBinary(states, bs);
+    bs.saveToFile("tictacs.bin");
+}
 
 
 int main()
@@ -25,6 +57,16 @@ int main()
     //test_cnn_conv();
     //test_cnn_tictac();
     //mnist_test();
+
+    BinaryStream bs;
+    bs.loadFromFile("tictacs.bin");
+    std::vector<TicTac> res = TicTac::ReadBinary(bs);
+    for (int i = 0; i < res.size(); ++i) {
+        res[i].printState();
+    }
+
+    
+
 
     mcts::Setting setting;
     setting.simulationCount = 100;

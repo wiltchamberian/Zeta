@@ -48,10 +48,12 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <PreprocessorDefinitions>WIN32;WIN64;CUDNN_FRONTEND_SKIP_JSON_LIB</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
+      <EnableModules>true</EnableModules>
+      <BuildStlModules>true</BuildStlModules>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -71,10 +73,12 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <PreprocessorDefinitions>WIN32;WIN64;CUDNN_FRONTEND_SKIP_JSON_LIB</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
+      <EnableModules>true</EnableModules>
+      <BuildStlModules>true</BuildStlModules>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -93,6 +97,8 @@
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="src\cnn_test.cu" />
+    <CudaCompile Include="src\cuda\cudnn\cudnnConv.cpp" />
+    <CudaCompile Include="src\cuda\DNN.cu" />
     <CudaCompile Include="src\cuda\cuLayer.cu" />
     <CudaCompile Include="src\cuda\CuNN.cu" />
     <CudaCompile Include="src\cuda\cu_tool.cu" />
@@ -108,6 +114,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Activation.cpp" />
+    <ClCompile Include="src\cuda\activationLayer.cpp" />
+    <ClCompile Include="src\cuda\cudnnBackend.cpp" />
+    <ClCompile Include="src\cuda\cudnn\DnnHelp.cpp" />
+    <ClCompile Include="src\cuda\cudnn\dnnAct.cpp" />
     <ClCompile Include="src\fp16_emu.cpp" />
     <ClCompile Include="src\Go.cpp" />
     <ClCompile Include="src\Layer.cpp" />
@@ -122,6 +132,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Activation.h" />
+    <ClInclude Include="src\binary.h" />
+    <ClInclude Include="src\cuda\activationLayer.h" />
+    <ClInclude Include="src\cuda\cudnn\cudnnConv.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnHelp.h" />
+    <ClInclude Include="src\cuda\cudnn\dnnAct.h" />
+    <ClInclude Include="src\cuda\DNN.h" />
     <ClInclude Include="src\cuda\cuLayer.h" />
     <ClInclude Include="src\cuda\CuNN.h" />
     <ClInclude Include="src\cuda\cu_tool.h" />

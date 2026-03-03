@@ -1,8 +1,9 @@
 #pragma once
 #include "tensor.h"
 #include "Layer.h"
-#include <cudnn.h>
+//#include <cudnn.h>
 #include <fstream>
+//#include <cudnn_frontend.h>
 
 struct TensorShape {
     TensorShape() {}
@@ -59,6 +60,22 @@ struct DeviceLayer {
 
 class CuNN;
 
+enum class LayerType {
+    Basic,
+    Fully,
+    Conv,
+    Activation,
+    Act_Relu,
+    Act_Tanh,
+    Act_Sigmoid,
+    Act_ClippedRelu,
+    Act_Elu,
+    Act_Identity,
+    Act_SWISH,
+    Mse,
+    Softmax
+};
+
 class CuLayer {
 public:
     CuLayer(){
@@ -66,15 +83,9 @@ public:
     }
 
     virtual void forward() = 0;
-    //virtual void backward(const float* delta_next, const float* w_next) = 0;
-    //virtual void dgrad() = 0;
-    //virtual void wgrad() = 0;
-    //virtual void bgrad() = 0;
     virtual void backwardEx() = 0;
     virtual void applyGradient() = 0;
 
-    //virtual Shape GetInputShape() = 0;
-    //virtual Shape GetOutputShape() = 0;
     virtual void InferOutputShape(TensorShape networkInput) = 0;
     virtual size_t GetWorkspaceSize() = 0;
     virtual size_t GetDeviceSize() = 0;
@@ -110,8 +121,13 @@ public:
     TensorShape outputShape;
     std::vector<CuLayer*> prevs;
     std::vector<CuLayer*> nexts;
+    //used for operation fuse
+    CuLayer* forward_next = nullptr; //forward fuse
+    CuLayer* backward_prev = nullptr; //backward fuse
 
     CuNN* nn = nullptr;
+
+    LayerType layerType = LayerType::Basic;
 
     //middle variable
     int visit_count = 0;
@@ -119,6 +135,8 @@ public:
 
     //a hack, only used for clone but dont copy it while cloning
     CuLayer* ref = nullptr;
+
+    void test_cudnn_frontend();
 };
 
 class CuDefaultLayer :public CuLayer {
@@ -137,7 +155,7 @@ public:
     virtual void applyGradient() {
 
     }
-    virtual CuLayer* Clone() {
+    virtual CuLayer* Clone() const {
         return nullptr;
     }
     virtual size_t GetWorkspaceSize() {
@@ -166,11 +184,6 @@ public:
     virtual void FetchGradToCpu() {
         ;
     }
-};
-
-class CuInputLayer : public CuDefaultLayer {
-public:
-    
 };
 
 class CuAddLayer : public CuDefaultLayer {
@@ -249,7 +262,8 @@ public:
 
 class CuSoftmaxCrossEntropyLayer : public CuDefaultLayer {
 public:
-    CuSoftmaxCrossEntropyLayer() /*:batchSize(0)*/ {
+    CuSoftmaxCrossEntropyLayer()  {
+        layerType = LayerType::Softmax;
     }
     float FetchLoss();
     void forward();
@@ -334,6 +348,7 @@ public:
     using CuLayer::CuLayer;
     CuConvolutionLayer();
     CuConvolutionLayer(int K, int C, int R, int S);
+    virtual ~CuConvolutionLayer();
     void RandomParameters();
     void InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
@@ -389,6 +404,8 @@ public:
     int padW = 0;
     int strideH = 1;
     int strideW = 1;
+
+   
 };
 
 using Conv2d = CuConvolutionLayer;

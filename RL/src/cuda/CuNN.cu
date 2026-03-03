@@ -41,14 +41,14 @@ void CuNN::AllocDeviceMemory() {
         });
 
     if (deviceMemory != nullptr) {
-        CUDA_CHECK(cudaFree(deviceMemory));
+        CU_CHECK(cudaFree(deviceMemory));
         deviceMemorySize = 0;
     }
 
     // 2️⃣ 一次性分配
     deviceMemorySize = total * sizeof(float);
-    CUDA_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
-    CUDA_CHECK(cudaMemset(deviceMemory, 0, deviceMemorySize));
+    CU_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
+    CU_CHECK(cudaMemset(deviceMemory, 0, deviceMemorySize));
 
     char* addr = static_cast<char*>(deviceMemory);
 
@@ -63,14 +63,14 @@ void CuNN::AllocDeviceMemory() {
 
 void CuNN::CopyAndBindDeviceMemory(void* memory, size_t siz){
     if (deviceMemory != nullptr) {
-        CUDA_CHECK(cudaFree(deviceMemory));
+        CU_CHECK(cudaFree(deviceMemory));
         deviceMemorySize = 0;
     }
 
     // 2️⃣ 一次性分配
     deviceMemorySize = siz;
-    CUDA_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
-    CUDA_CHECK(cudaMemcpy(deviceMemory, memory, deviceMemorySize, cudaMemcpyDeviceToDevice));
+    CU_CHECK(cudaMalloc(&deviceMemory, deviceMemorySize));
+    CU_CHECK(cudaMemcpy(deviceMemory, memory, deviceMemorySize, cudaMemcpyDeviceToDevice));
 
     char* addr = static_cast<char*>(deviceMemory);
 
@@ -106,17 +106,17 @@ void CuNN::AllocWorkSpaceIfNeeded() {
 
     // 2️⃣ 如果已有 workspace 内存够用就直接返回
     if (deviceWorkspace && workspaceSize >= bytes) {
-        CUDA_CHECK(cudaMemset(deviceWorkspace, 0, workspaceSize));
+        CU_CHECK(cudaMemset(deviceWorkspace, 0, workspaceSize));
         //return;
     }
     else {
         // 3️⃣ 如果需要，释放旧内存并重新分配
         if (deviceWorkspace) {
-            CUDA_CHECK(cudaFree(deviceWorkspace));
+            CU_CHECK(cudaFree(deviceWorkspace));
             deviceWorkspace = nullptr;
         }
-        CUDA_CHECK(cudaMalloc(&deviceWorkspace, bytes));
-        CUDA_CHECK(cudaMemset(deviceWorkspace, 0, bytes));
+        CU_CHECK(cudaMalloc(&deviceWorkspace, bytes));
+        CU_CHECK(cudaMemset(deviceWorkspace, 0, bytes));
         workspaceSize = bytes;
     }
 
@@ -178,7 +178,7 @@ void CuNN::Forward(const Tensor& x) {
     AllocWorkSpaceIfNeeded();
 
     // 1️⃣ 拷贝输入 x 到 workspace
-    CUDA_CHECK(cudaMemcpy(ws.x, x.data(), x.numel() * sizeof(float), cudaMemcpyHostToDevice));
+    CU_CHECK(cudaMemcpy(ws.x, x.data(), x.numel() * sizeof(float), cudaMemcpyHostToDevice));
 
     Travel([](CuLayer* rover)->bool {
         rover->forward();
@@ -342,10 +342,10 @@ void CuNN::Save(const std::string& path) const {
 }
 
 void CuNN::ReleaseDeviceMemory() {
-    CUDA_CHECK(cudaFree(deviceMemory));
+    CU_CHECK(cudaFree(deviceMemory));
     deviceMemory = nullptr;
     deviceMemorySize = 0;
-    CUDA_CHECK(cudaFree(deviceWorkspace));
+    CU_CHECK(cudaFree(deviceWorkspace));
     deviceWorkspace = nullptr;
     workspaceSize = 0;
     ws.Clear();
