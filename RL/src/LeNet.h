@@ -1,11 +1,12 @@
 #pragma once
-#include "CuNN.h"
+#include "DNN.h"
 #include "reluLayer.h"
 #include "maxpool.h"
 
-class LeNet: public CuNN{
+class LeNet: public DNN{
 public:
     void createNetwork();
+    void createDnnNetwork();
     void Backward();
     CuSoftmaxCrossEntropyLayer* head = nullptr;
 

@@ -181,6 +181,15 @@ __global__ void softmax_backward_kernel(
     int CHW
 );
 
+// A = A + B (B is broad casted)
+__global__ void tensor_add_bias_kernel(
+    float* A, //NCHW
+    const float* B,  //1C11
+    int HW,
+    int C,
+    int NCHW
+);
+
 __global__ void conv_forward_kernel(
     const float* input,      // N * C * H * W
     const float* weights,    // K * (CRS)

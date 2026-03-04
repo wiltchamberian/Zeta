@@ -4,6 +4,7 @@
 class ActivationLayer : public CuDefaultLayer {
 public:
     ActivationLayer();
+    ActivationLayer(LayerType lt);
     virtual void forward();
     virtual void backwardEx();
     virtual void applyGradient();
@@ -12,18 +13,17 @@ public:
     virtual size_t GetDeviceSize();
     virtual void BindWorkspace(void* ptr);
     virtual void BindDevice(void* ptr);
-    virtual float* GetActivation();
-    virtual size_t GetActivationSize();
     virtual float* GetDelta();
     virtual size_t GetDeltaSize();
     virtual CuLayer* Clone() const override;
     virtual void FetchResultToCpu();
     virtual void FetchGradToCpu();
+    virtual Tensor FetchActivationToCpu();
     virtual void Print();
     virtual void PrintGrad();
 
-    float* y = nullptr;
-    float* dy = nullptr;
+    //float* y = nullptr;
+    //float* dy = nullptr;
     float alpha = 0;
 
 };

@@ -12,10 +12,6 @@ public:
     virtual size_t GetDeviceSize();
     virtual void BindWorkspace(void* ptr);
     virtual void BindDevice(void* ptr);
-    virtual float* GetActivation();
-    virtual size_t GetActivationSize();
-    virtual float* GetDelta();
-    virtual size_t GetDeltaSize();
     virtual CuLayer* Clone() const override;
     virtual void FetchResultToCpu();
     virtual void FetchGradToCpu();
@@ -24,8 +20,8 @@ public:
 
     virtual float GetAlpha();
 
-    float* activation = nullptr;
-    float* dC_da = nullptr;
+    //float* activation = nullptr;
+    //float* dC_da = nullptr;
     int* maxIndex = nullptr;
     int h = 2;
     int w = 2;

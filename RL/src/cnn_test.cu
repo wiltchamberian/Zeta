@@ -1,9 +1,12 @@
 #include "cnn_test.h"
 #include "CuNN.h"
+#include "DNN.h"
 #include "tanhLayer.h"
 #include "reluLayer.h"
 #include "maxpool.h"
 #include "TicTac.h"
+#include "DnnConv.h"
+#include "dnnAct.h"
 #include <memory>
 
 void test_cnn_linear() {
@@ -72,8 +75,7 @@ void test_cnn_conv() {
     network.SetLearningRate(0.1f);
 
     //layer
-    auto c1 = network.CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
-    c1->alpha = 0.0;
+    auto c1 = network.CreateLayer<Conv2d>(8, 2, 3, 3, Size2D{ 1,1 });
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 2; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -83,9 +85,11 @@ void test_cnn_conv() {
             }
         }
     }
+    auto relu1 = network.CreateLayer<CuReluLayer>();
 
-    auto c2 = network.CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
-    c2->alpha = 0.0;
+    auto c2 = network.CreateLayer<Conv2d>(4, 8, 3, 3, Size2D{ 1,1 });
+    auto relu2 = network.CreateLayer<CuReluLayer>();
+
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 8; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -95,11 +99,9 @@ void test_cnn_conv() {
             }
         }
     }
-    c1->AddLayer(c2);
 
     //1d conv
-    auto c3 = network.CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
-    c3->alpha = 0.0;
+    auto c3 = network.CreateLayer<Conv2d>(1, 4, 3, 3, Size2D{ 1,1 });
     for (int i = 0; i < 1; ++i) {
         for (int j = 0; j < 4; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -109,14 +111,15 @@ void test_cnn_conv() {
             }
         }
     }
-    c2->AddLayer(c3);
 
-    CuSoftmaxCrossEntropyLayer* mse = network.CreateLayer<CuSoftmaxCrossEntropyLayer>();
-    mse->label = Tensor(1, 3, 3);
+    CuSoftmaxCrossEntropyLayer* cross = network.CreateLayer<CuSoftmaxCrossEntropyLayer>();
+    cross->label = Tensor(1, 3, 3);
     for (int i = 0; i < 9; ++i) {
-        mse->label(0, i/3, i%3) = 1.0f / 9.0f;
+        cross->label(0, i/3, i%3) = 1.0f / 9.0f;
     }
-    c3->AddLayer(mse);
+
+    auto outputLayer = network.CreateLayer<OutputLayer>();
+    c1->AddLayer(relu1)->AddLayer(c2)->AddLayer(relu2)->AddLayer(c3)->AddLayer(cross)->AddLayer(outputLayer);
 
     int H = 3;
     int W = 3;
@@ -135,14 +138,114 @@ void test_cnn_conv() {
     network.Forward(convX);
 
     c3->FetchActivationToCpu();
-    c3->ac.print("ac:");
-    mse->FetchActivationToCpu();
-    mse->distribution.print("distribution:");
+    c3->ac.print_torch_style("ac:");
+    cross->FetchActivationToCpu();
+    cross->distribution.print_torch_style("distribution:");
+    
 
     network.Backward();
+    c3->PrintDelta();
+    c3->FetchGradToCpu();
+    c3->weights_grad.print_torch_style();
+    c3->bias_grad.print_torch_style();
+    auto act = relu2->FetchActivationToCpu();
+    act.print_torch_style();
 
     network.FetchGrad();
     network.PrintGrad();
+    
+
+    network.Step();
+    network.FetchResultToCpu();
+    network.Print();
+}
+
+void test_dnn_conv() {
+
+    DNN network;
+    network.SetLearningRate(0.1f);
+
+    //layer
+    auto c1 = network.CreateDnnLayer<DnnConv>(8, 2, 3, 3, Size2D{ 1,1 });
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                for (int t = 0; t < 3; ++t) {
+                    c1->weights(i, j, k, t) = 0.1f;
+                }
+            }
+        }
+    }
+    auto relu1 = network.CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+
+    auto c2 = network.CreateDnnLayer<DnnConv>(4, 8, 3, 3, Size2D{ 1,1 });
+    auto relu2 = network.CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                for (int t = 0; t < 3; ++t) {
+                    c2->weights(i, j, k, t) = 0.1f;
+                }
+            }
+        }
+    }
+
+    //1d conv
+    auto c3 = network.CreateDnnLayer<DnnConv>(1, 4, 3, 3, Size2D{ 1,1 });
+    for (int i = 0; i < 1; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                for (int t = 0; t < 3; ++t) {
+                    c3->weights(i, j, k, t) = 0.1f;
+                }
+            }
+        }
+    }
+
+    CuSoftmaxCrossEntropyLayer* cross = network.CreateLayer<CuSoftmaxCrossEntropyLayer>();
+    cross->label = Tensor(1, 3, 3);
+    for (int i = 0; i < 9; ++i) {
+        cross->label(0, i / 3, i % 3) = 1.0f / 9.0f;
+    }
+
+    auto outputLayer = network.CreateLayer<OutputLayer>();
+
+    c1->AddLayer(relu1)->AddLayer(c2)->AddLayer(relu2)->AddLayer(c3)->AddLayer(cross)->AddLayer(outputLayer);
+
+    int H = 3;
+    int W = 3;
+    Tensor convX(1, 2, H, W);
+
+    for (int t = 0; t < W; ++t) {
+        convX(0, 0, 0, t) = 1;
+        convX(0, 0, 1, t) = 0;
+        convX(0, 0, 2, t) = 0;
+        convX(0, 1, 0, t) = 0;
+        convX(0, 1, 1, t) = 0;
+        convX(0, 1, 2, t) = 1;
+    }
+
+    network.AllocDeviceMemory();
+    network.Forward(convX);
+
+    c3->FetchActivationToCpu();
+    c3->ac.print_torch_style("ac:");
+    cross->FetchActivationToCpu();
+    cross->distribution.print_torch_style("distribution:");
+
+
+    network.Backward();
+    c3->PrintDelta();
+    c3->FetchGradToCpu();
+    c3->weights_grad.print_torch_style();
+    c3->bias_grad.print_torch_style();
+    auto act = relu2->FetchActivationToCpu();
+    act.print_torch_style();
+
+    network.FetchGrad();
+    network.PrintGrad();
+
 
     network.Step();
     network.FetchResultToCpu();
@@ -164,9 +267,7 @@ void test_cnn_tictac() {
    
 
     //layer
-    auto c1 = network.CreateLayer<CuConvolutionLayer>(8, 2, 3, 3);
-    c1->padH = 1;
-    c1->padW = 1;
+    auto c1 = network.CreateLayer<Conv2d>(8, 2, 3, 3, Size2D{ 1,1 });
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 2; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -184,10 +285,8 @@ void test_cnn_tictac() {
 
     relu_for_conv->AddLayer(maxpool);
 
-    auto c2 = network.CreateLayer<CuConvolutionLayer>(4, 8, 3, 3);
+    auto c2 = network.CreateLayer<Conv2d>(4, 8, 3, 3, Size2D{ 1,1 });
     c2->alpha = 0.0;
-    c2->padH = 1;
-    c2->padW = 1;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 8; ++j) {
             for (int k = 0; k < 3; ++k) {
@@ -200,9 +299,7 @@ void test_cnn_tictac() {
     maxpool->AddLayer(c2);
 
     //1d conv
-    auto c3 = network.CreateLayer<CuConvolutionLayer>(1, 4, 3, 3);
-    c3->padH = 1;
-    c3->padW = 1;
+    auto c3 = network.CreateLayer<Conv2d>(1, 4, 3, 3, Size2D{ 1,1 });
     c3->alpha = 0.0;
     for (int i = 0; i < 1; ++i) {
         for (int j = 0; j < 4; ++j) {

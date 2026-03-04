@@ -10,10 +10,6 @@
 
 #include "kernels.h"
 
-void CuNN::SetInput(const Tensor& tensor) {
-    input = tensor;
-}
-
 void CuNN::SetLabel(const Tensor& tensor) {
     label = tensor;
 }
@@ -33,6 +29,10 @@ void CuNN::Clear() {
 }
 
 void CuNN::AllocDeviceMemory() {
+    if (head == nullptr) {
+        head = findRootLayer();
+    }
+    
     // 1️⃣ 计算总大小：weights + grad_w + bias + grad_b
     size_t total = 0;
     Travel([&total](CuLayer* l)->bool {
@@ -91,11 +91,11 @@ void CuNN::AllocWorkSpaceIfNeeded() {
         assert(false);
     }
 
-    int batchSize = layers[0]->inputShape.N;
+    int batchSize = head->input->shape.N;
 
     // 输入 x
-    int in_dim = layers[0]->inputShape.Dim();
-    total += layers[0]->inputShape.NumElements();
+    int in_dim = head->input->shape.Dim();
+    total += head->input->shape.NumElements();
 
     Travel([&total](CuLayer* rover)->bool {
         total += rover->GetWorkspaceSize();
@@ -127,12 +127,9 @@ void CuNN::AllocWorkSpaceIfNeeded() {
     // 输入 x
     ws.x = reinterpret_cast<float*>(addr);
     addr += batchSize * in_dim * sizeof(float);
-
+    head->input->v = ws.x;
 
     Travel([&addr, this](CuLayer* layer)->bool {
-        if (layer->IsRoot()) {
-            layer->prevActivation = ws.x;
-        }
         layer->BindWorkspace(addr);
         addr += layer->GetWorkspaceSize() * sizeof(float);
         return false;
@@ -143,7 +140,8 @@ void CuNN::AllocWorkSpaceIfNeeded() {
 
 void CuNN::Forward(const Tensor& x) {
     //record shape of x, check legal
-    input = x;
+    //input = x;
+    
     batchSize = x.shape[0];
 
     TensorShape ts;
@@ -169,6 +167,12 @@ void CuNN::Forward(const Tensor& x) {
     else {
         assert(false);
     }
+    input->shape = ts;
+    if (head == nullptr) {
+        head = findRootLayer();
+    }
+    
+    head->input = input.get();
     
     Travel([ts](CuLayer* l)->bool {
         l->InferOutputShape(ts);
@@ -186,7 +190,7 @@ void CuNN::Forward(const Tensor& x) {
         });
 }
 
-void CuNN::Travel(std::function<bool(CuLayer*)> func) {
+CuLayer* CuNN::findRootLayer() const {
     CuLayer* rover = nullptr;
     for (int i = 0; i < layers.size(); ++i) {
         if (layers[i]->IsRoot()) {
@@ -194,6 +198,12 @@ void CuNN::Travel(std::function<bool(CuLayer*)> func) {
             break;
         }
     }
+    return rover;
+}
+
+void CuNN::Travel(std::function<bool(CuLayer*)> func) {
+    CuLayer* rover = head;
+
     std::vector<CuLayer*> stack;
     while (rover != nullptr) {
         rover->visit_count += 1;
@@ -332,7 +342,7 @@ float CuNN::MseLoss(Tensor& xs, Tensor& ys) {
 
 size_t CuNN::GetBatchSize() const {
     if (layers.size() > 0) {
-        return layers[0]->inputShape.N;
+        return layers[0]->input->shape.N;
     }
     return 0;
 }

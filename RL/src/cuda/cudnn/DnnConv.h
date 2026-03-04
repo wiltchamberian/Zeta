@@ -6,18 +6,26 @@
 
 class DNN;
 
-class CudnnConv : public Conv2d {
+class DnnConv : public Conv2d {
 public:
-    CudnnConv(int K, int C, int R, int S);
-    ~CudnnConv() override;
+    DnnConv(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 });
+    virtual ~DnnConv() override;
     void BindWorkspace(void* ptr) override;
     void forward() override;
     void backwardEx() override;
+
+    void dgrad();
+    void wgrad();
+    void bgrad();
+//protected:
+    void workSpaceReAlloc(void** workSpace, size_t& siz, size_t oldSize);
     cudnnDataType_t dataType = CUDNN_DATA_FLOAT;
     cudnnTensorFormat_t filterFormat = CUDNN_TENSOR_NCHW;
     cudnnConvolutionMode_t mode = CUDNN_CROSS_CORRELATION;
-    cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
+    cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
     cudnnConvolutionBwdDataAlgo_t algo_bwd = CUDNN_CONVOLUTION_BWD_DATA_ALGO_0;
+    cudnnConvolutionBwdFilterAlgo_t algo_filter_bwd = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
+
     cudnnTensorDescriptor_t cudnnIdesc;
     cudnnFilterDescriptor_t cudnnFdesc;
     cudnnTensorDescriptor_t cudnnOdesc;
@@ -33,6 +41,10 @@ public:
     //backward workspace
     void* workSpaceBwd = nullptr;
     size_t workSpaceSizeBwd = 0;
+
+    //backward filter workspace
+    void* workSpaceFilterBwd = nullptr;
+    size_t workSpaceFilterSizeBwd = 0;
 
     DNN* dnn = nullptr;
 };

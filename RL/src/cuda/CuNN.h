@@ -54,6 +54,7 @@ public:
         ,deviceMemory(nullptr)
         ,deviceWorkspace(nullptr)
     {
+        input = std::make_unique<CuTensor>();
     }
 
     ~CuNN() {
@@ -69,14 +70,20 @@ public:
         return res;
     }
 
+    template<typename T, typename... Args>
+    T* CreateTensor(Args&&... args)
+    {
+        tensors.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+        T* res = static_cast<T*>(tensors.back().get());
+        return res;
+    }
+
     //reset to the state of just created, only keep the learning rate
     void Clear();
 
     void SetLearningRate(float lr) {
         learningRate = lr;
     }
-
-    void SetInput(const Tensor& tensor);
 
     void SetLabel(const Tensor& tensor);
 
@@ -106,6 +113,8 @@ public:
 
     void Print();
 
+    CuLayer* findRootLayer() const;
+
     void Travel(std::function<bool(CuLayer*)> ff);
 
     void TravelBackward(std::function<void(CuLayer*)> ff);
@@ -125,7 +134,7 @@ public:
     void CleanRefs(); //use with clone
 
     int batchSize = 0;
-    float c = 1.0; //regularization parameter
+    float c = 0.0f; //regularization parameter
 
     void* GetDeviceMemory() { return deviceMemory; }
     void* GetWorkspace() { return deviceWorkspace; }
@@ -133,13 +142,15 @@ public:
     int GetWorkspaceSize() { return workspaceSize;  }
 protected:
     //backup of input and label y
-    Tensor input;
+    //Tensor input;
     Tensor label;
+
+    std::unique_ptr<CuTensor> input;
 
     CuLayer* head = nullptr;
     CuLayer* tail = nullptr;//to loss
     std::vector<std::unique_ptr<CuLayer>> layers;
-    
+    std::vector<std::unique_ptr<CuTensor>> tensors;
 
 
     //device memory manager, all used memory use one buffer....

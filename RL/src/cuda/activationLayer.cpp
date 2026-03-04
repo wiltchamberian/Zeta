@@ -1,8 +1,14 @@
 #include "activationLayer.h"
 #include "kernels.h"
+#include "cu_tool.h"
+#include <cuda_runtime.h>
 
 ActivationLayer::ActivationLayer() {
     layerType = LayerType::Activation;
+}
+
+ActivationLayer::ActivationLayer(LayerType lt) {
+    layerType = lt;
 }
 
 void ActivationLayer::forward() {
@@ -18,27 +24,28 @@ void ActivationLayer::applyGradient() {
 }
 
 void ActivationLayer::InferOutputShape(TensorShape networkInput) {
-    if (!prevs.empty()) {
-        inputShape = prevs[0]->outputShape;
-        outputShape = inputShape;
-    }
-    else {
-        inputShape = networkInput;
-        outputShape = inputShape;
-    }
+    //if (!prevs.empty()) {
+    //    inputShape = prevs[0]->outputShape;
+    //    outputShape = inputShape;
+    //}
+    //else {
+    //    inputShape = networkInput;
+    //    outputShape = inputShape;
+    //}
+    output->shape = prevs.empty() ? networkInput : input->shape;
 }
 
 void ActivationLayer::BindWorkspace(void* ptr) {
     float* p = reinterpret_cast<float*>(ptr);
-    y = p;
-    p += inputShape.NumElements();
-    dy = p;
+    output->v = p;
+    p += input->shape.NumElements();
+    output->delta = p;
     return;
 }
 
 
 size_t ActivationLayer::GetWorkspaceSize() {
-    return inputShape.NumElements() * 2;
+    return input->shape.NumElements() * 2;
 }
 
 void ActivationLayer::BindDevice(void* ptr) {
@@ -49,27 +56,19 @@ size_t ActivationLayer::GetDeviceSize() {
     return 0;
 }
 
-
-float* ActivationLayer::GetActivation() {
-    return y;
-}
-
-size_t ActivationLayer::GetActivationSize() {
-    return inputShape.NumElements();
-}
-
 float* ActivationLayer::GetDelta() {
-    return dy;
+    return output->delta;
 }
 
 size_t ActivationLayer::GetDeltaSize() {
-    return inputShape.NumElements();
+    return input->shape.NumElements();
 }
 
 CuLayer* ActivationLayer::Clone() const {
     auto res = new ActivationLayer();
-    res->inputShape = inputShape;
-    res->outputShape = outputShape;
+    //res->inputShape = inputShape;
+    //res->outputShape = outputShape;
+    res->output = output->Clone();
     res->alpha = this->alpha;
     return res;
 }
@@ -80,6 +79,13 @@ void ActivationLayer::FetchResultToCpu() {
 
 void ActivationLayer::FetchGradToCpu() {
 
+}
+
+Tensor ActivationLayer::FetchActivationToCpu() {
+    int siz = output->shape.NumElements();
+    Tensor tensor(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
+    CU_CHECK(cudaMemcpy(tensor.data(), output->v, siz * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    return tensor;
 }
 
 void ActivationLayer::Print() {

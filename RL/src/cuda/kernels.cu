@@ -586,7 +586,7 @@ __global__ void simple_softmax_forward_kernel(
     for (int i = 0; i < M; i++) m = fmaxf(m, row_input[i]);
     float sum = 0;
     for (int i = 0; i < M; i++) {
-        row_output[i] = exp(row_input[i] - m);
+        row_output[i] = __expf(row_input[i] - m);
         sum += row_output[i];
     }
     for (int i = 0; i < M; i++) row_output[i] /= sum;
@@ -672,6 +672,19 @@ __global__ void softmax_backward_kernel(
         sum += ylabel[i * CHW + k];
     }
     output[i * CHW + j] = (ps[i * CHW + j] * sum - ylabel[i * CHW + j])/N;
+}
+
+__global__ void tensor_add_bias_kernel(
+    float* A, //NCHW
+    const float* B,       //C
+    int HW,
+    int C,
+    int NCHW
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i > NCHW) return;
+    int c = (i / HW)%C ;
+    A[i] = A[i] + B[c];
 }
 
 __global__ void conv_forward_kernel(

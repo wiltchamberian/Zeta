@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include "fp16_dev.h"
 #include "fp16_emu.h"
 
@@ -42,8 +43,6 @@ void generateStrides(const int* dimA, int* strideA, int nbDims, cudnnTensorForma
         cudnnStatus_t status = (x); \
         if (status != CUDNN_STATUS_SUCCESS) { \
             int err = checkCudnnError(status, "", __FILE__, __LINE__); \
-            if (err) { \
-                std::cerr << "CUDNN error"; \
-            } \
+            assert(false);\
         } \
     } while (0)

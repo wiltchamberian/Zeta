@@ -36,6 +36,11 @@ struct TensorShape {
     }
 };
 
+//used for padding and stride
+struct Size2D {
+    int h;
+    int w;
+};
 
 struct DeviceLayer {
     float* weights = nullptr;
@@ -46,9 +51,6 @@ struct DeviceLayer {
     int in_dim = 0;
     int b_size = 0;
 
-    float* activation = nullptr;
-    float* delta = nullptr;
-    float* delta1 = nullptr;
     DeviceLayer PesudoClone() const {
         DeviceLayer res;
         res.w_size = this->w_size;
@@ -76,6 +78,20 @@ enum class LayerType {
     Softmax
 };
 
+//save the tensor data between layers
+class CuTensor {
+public:
+    TensorShape shape;
+
+    float* v = nullptr;
+    float* delta = nullptr; //dC/dv
+
+    CuTensor* Clone() const {
+        //TODO
+        return nullptr;
+    }
+};
+
 class CuLayer {
 public:
     CuLayer(){
@@ -91,10 +107,10 @@ public:
     virtual size_t GetDeviceSize() = 0;
     virtual void BindWorkspace(void* ptr) = 0;
     virtual void BindDevice(void* ptr) = 0;
-    virtual float* GetActivation() = 0;
-    virtual size_t GetActivationSize() = 0;
-    virtual float* GetDelta() = 0;
-    virtual size_t GetDeltaSize() = 0;
+    float* GetActivation();
+    size_t GetActivationSize();
+    float* GetDelta();
+    size_t GetDeltaSize();
     virtual void FetchResultToCpu() = 0;
     virtual void FetchGradToCpu() = 0;
     virtual CuLayer* Clone() const = 0;
@@ -103,11 +119,7 @@ public:
     virtual void Save(std::fstream fs) {}
     virtual float GetAlpha() { return 1;  }
 
-    CuLayer* AddLayer(CuLayer* layer) {
-        this->nexts.push_back(layer);
-        layer->prevs.push_back(this);
-        return layer;
-    }
+    CuLayer* AddLayer(CuLayer* layer);
     bool IsRoot() const {
         return prevs.empty();
     }
@@ -117,13 +129,16 @@ public:
     //used for backward, flag whether this is the first visit in one backward
     //if it is the first visit, add== false, else make it true
     bool add = false;
-    TensorShape inputShape;
-    TensorShape outputShape;
+    //TensorShape inputShape;
+    //TensorShape outputShape;
     std::vector<CuLayer*> prevs;
     std::vector<CuLayer*> nexts;
     //used for operation fuse
     CuLayer* forward_next = nullptr; //forward fuse
     CuLayer* backward_prev = nullptr; //backward fuse
+
+    CuTensor* input = nullptr;
+    CuTensor* output = nullptr;
 
     CuNN* nn = nullptr;
 
@@ -131,7 +146,7 @@ public:
 
     //middle variable
     int visit_count = 0;
-    float* prevActivation = nullptr;
+    //float* prevActivation = nullptr;
 
     //a hack, only used for clone but dont copy it while cloning
     CuLayer* ref = nullptr;
@@ -145,12 +160,6 @@ public:
     virtual void forward() {}
     virtual void backwardEx() {};
     virtual void InferOutputShape(TensorShape networkInput) {
-        this->inputShape = prevs.empty() ? networkInput : prevs[0]->outputShape;
-        outputShape.N = 1;
-        outputShape.C = 1;
-        outputShape.H = 1;
-        outputShape.W = 1;
-        return;
     };
     virtual void applyGradient() {
 
@@ -170,14 +179,7 @@ public:
     virtual void BindDevice(void* ptr) {
         return ;
     }
-    virtual float* GetActivation() {
-        return nullptr;
-    }
-    virtual size_t GetActivationSize() { return 0; }
-    virtual float* GetDelta() { return nullptr; }
-    virtual size_t GetDeltaSize() {
-        return 0;
-    }
+
     virtual void FetchResultToCpu() {
         ;
     }
@@ -191,12 +193,23 @@ public:
     using CuDefaultLayer::CuDefaultLayer;
     virtual CuLayer* Clone() const {
         CuAddLayer* add = new CuAddLayer();
-        add->inputShape = this->inputShape;
-        add->outputShape = this->outputShape;
+        add->output = this->output->Clone();
         add->visit_count = 0;
         return add;
     }
 };
+
+class OutputLayer : public CuDefaultLayer {
+public:
+    using CuDefaultLayer::CuDefaultLayer;
+    virtual CuLayer* Clone() const {
+        OutputLayer* add = new OutputLayer();
+        add->output = this->output->Clone();
+        add->visit_count = 0;
+        return add;
+    }
+};
+
 
 class CuLinearLeakyReluLayer :public CuLayer {
 public:
@@ -217,8 +230,6 @@ public:
     size_t GetDeviceSize();
     void BindWorkspace(void* ptr);
     void BindDevice(void* ptr);
-    float* GetActivation();
-    size_t GetActivationSize();
     float* GetDelta();
     size_t GetDeltaSize();
     float* GetPrevActivation();
@@ -275,21 +286,6 @@ public:
     void BindDevice(void* ptr);
     size_t GetDeviceSize();
     CuLayer* Clone() const;
-    float* GetActivation() {
-        return activation;
-    }
-    size_t GetActivationSize() {
-        auto& shape = prevs[0]->outputShape;
-        return shape.C * shape.H * shape.W;
-    }
-    float* GetDelta() {
-        assert(false);
-        return nullptr;
-    }
-    size_t GetDeltaSize() {
-        assert(false);
-        return 0;
-    }
 
     void InferOutputShape(TensorShape networkInput);
 
@@ -298,10 +294,10 @@ public:
     void FetchActivationToCpu();
 
     Tensor label;
-    float* y = nullptr;
+    float* yLabel = nullptr;
     //int batchSize = 0;
     //softmax of input
-    float* activation = nullptr;
+    //float* activation = nullptr;
     float* loss = nullptr;
 
     //
@@ -325,10 +321,6 @@ public:
     void BindWorkspace(void* ptr);
     size_t GetDeviceSize();
     void BindDevice(void* ptr);
-    size_t GetActivationSize();
-    float* GetActivation();
-    float* GetDelta();
-    size_t GetDeltaSize();
     void FetchPredYToCpu();
     void PrintPredY();
     void FetchResultToCpu();
@@ -343,22 +335,18 @@ public:
 };
 
 /********************convolution layer**************************/
-class CuConvolutionLayer :public CuLayer {
+class Conv2d :public CuLayer {
 public:
     using CuLayer::CuLayer;
-    CuConvolutionLayer();
-    CuConvolutionLayer(int K, int C, int R, int S);
-    virtual ~CuConvolutionLayer();
+    Conv2d();
+    Conv2d(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 });
+    virtual ~Conv2d();
     void RandomParameters();
     void InferOutputShape(TensorShape shape) override;
     size_t GetWorkspaceSize();
     void BindWorkspace(void* ptr);
     void BindDevice(void* ptr);
     size_t GetDeviceSize();
-    size_t GetActivationSize();
-    float* GetActivation();
-    size_t GetDeltaSize();
-    float* GetDelta();
     void forward();
     CuLayer* Clone() const;
     void backward(const float* delta_next, const float* w_next);
@@ -373,9 +361,11 @@ public:
     void PrintDelta();
     void Print();
     void PrintGrad();
+    
     void FetchResultToCpu();
     void FetchGradToCpu();
     void FetchActivationToCpu();
+    void FetchDeltaToCpu();
 
     float GetAlpha() {
         return alpha;
@@ -400,6 +390,7 @@ public:
 
     float alpha = 1.0;
 
+protected:
     int padH = 0;
     int padW = 0;
     int strideH = 1;
@@ -408,7 +399,6 @@ public:
    
 };
 
-using Conv2d = CuConvolutionLayer;
 using Linear = CuLinearLeakyReluLayer;
 
 

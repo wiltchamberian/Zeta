@@ -342,37 +342,27 @@ void GoProxy::createNetwork(float learningRate) {
     nn->SetLearningRate(learningRate);
 
     //layer
-    auto c1 = nn->CreateLayer<CuConvolutionLayer>(32, 2, 3, 3);
+    auto c1 = nn->CreateLayer<Conv2d>(32, 2, 3, 3, Size2D{ 1,1 });
     c1->alpha = 0.0;
-    c1->padH = 1;
-    c1->padW = 1;
     root = c1;
 
     auto r1 = nn->CreateLayer<CuReluLayer>();
 
-    auto c2 = nn->CreateLayer<CuConvolutionLayer>(32, 32, 3, 3);
+    auto c2 = nn->CreateLayer<Conv2d>(32, 32, 3, 3, Size2D{ 1,1 });
     c2->alpha = 0.0;
-    c2->padH = 1;
-    c2->padW = 1;
     auto r2 = nn->CreateLayer<CuReluLayer>();
 
-    auto c3 = nn->CreateLayer<CuConvolutionLayer>(32, 32, 3, 3);
+    auto c3 = nn->CreateLayer<Conv2d>(32, 32, 3, 3, Size2D{ 1,1 });
     c3->alpha = 0.0;
-    c3->padH = 1;
-    c3->padW = 1;
     auto r3 = nn->CreateLayer<CuReluLayer>();
 
-    auto c4 = nn->CreateLayer<CuConvolutionLayer>(32, 32, 3, 3);
+    auto c4 = nn->CreateLayer<Conv2d>(32, 32, 3, 3, Size2D{ 1,1 });
     c4->alpha = 0.0;
-    c4->padH = 1;
-    c4->padW = 1;
     auto r4 = nn->CreateLayer<CuReluLayer>();
 
     //conv
-    auto c_policy = nn->CreateLayer<CuConvolutionLayer>(2, 32, 1, 1);
+    auto c_policy = nn->CreateLayer<Conv2d>(2, 32, 1, 1);
     c_policy->alpha = 0.0;
-    c_policy->padH = 0;
-    c_policy->padW = 0;
 
     auto relu = nn->CreateLayer<CuReluLayer>();
 
@@ -383,8 +373,6 @@ void GoProxy::createNetwork(float learningRate) {
 
     auto c_value = nn->CreateLayer<Conv2d>(1, 32, 1, 1);
     c_value->alpha = 0;
-    c_value->padH = 0;
-    c_value->padW = 0;
 
     auto fully2 = nn->CreateLayer<CuLinearLeakyReluLayer>(25, 64);
     auto relu2 = nn->CreateLayer<CuReluLayer>();

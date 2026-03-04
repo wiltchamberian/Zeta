@@ -9,8 +9,9 @@ DnnActLayer::DnnActLayer()
     Init(LayerType::Act_Identity);
 }
 
-DnnActLayer::DnnActLayer(LayerType lt) {
-    Init(layerType);
+DnnActLayer::DnnActLayer(LayerType lt) 
+:ActivationLayer(lt){
+    Init(lt);
 }
 
 void DnnActLayer::Init(LayerType lt) {
@@ -73,7 +74,7 @@ DnnActLayer::~DnnActLayer() {
 }
 
 void DnnActLayer::forward() {
-    float* x = prevs.size() > 0 ? prevs[0]->GetActivation() : prevActivation;
+    float* x = input->v;
     if (x == nullptr) {
         assert(false);
         return;
@@ -88,43 +89,46 @@ void DnnActLayer::forward() {
         x,
         &beta1,
         yDesc,
-        y
+        output->v
     ));
 }
 
 void DnnActLayer::backwardEx() {
     if (prevs.empty()) return;
-    float* x = prevs[0]->GetActivation();
-    float* dx = prevs[0]->GetDelta();
+    float* x = input->v;
+    float* dx = input->delta;
 
     float alpha1 = 1;
     float beta1 = 0;
-    DNN_CHECK(cudnnActivationBackward(dnn->handle_,
+    auto status = cudnnActivationBackward(dnn->handle_,
         actDesc,
         &alpha1,
         yDesc,
-        y,
+        output->v,
         dyDesc,
-        dy,
+        output->delta,
         xDesc,
         x,
         &beta1,
         xDesc,
         dx
-    ));
+    );
+    if (status != CUDNN_STATUS_SUCCESS) {
+        assert(false);
+    }
 }
 
 void DnnActLayer::BindWorkspace(void* ptr) {
     ActivationLayer::BindWorkspace(ptr);
     cudnnDataType_t dataType = CUDNN_DATA_FLOAT;
 
-    int dimA[4] = {inputShape.N, inputShape.C, inputShape.H, inputShape.W};
+    int dimA[4] = {input->shape.N, input->shape.C, input->shape.H, input->shape.W};
     int strideA[4] = {};
     cudnnTensorFormat_t tensorFormat = CUDNN_TENSOR_NCHW;
     generateStrides(dimA, strideA, 4, tensorFormat);
     cudnnSetTensorNdDescriptor(xDesc, dataType, 4, dimA, strideA);
 
-    int dimB[4] = { outputShape.N, outputShape.C, outputShape.H, outputShape.W };
+    int dimB[4] = { output->shape.N, output->shape.C, output->shape.H, output->shape.W };
     int strideB[4] = {};
     generateStrides(dimB, strideB, 4, tensorFormat);
     cudnnSetTensorNdDescriptor(yDesc, dataType, 4, dimB, strideB);

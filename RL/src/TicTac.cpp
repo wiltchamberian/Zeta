@@ -351,22 +351,16 @@ void TicTacProxy::createNetwork(float learningRate) {
     nn->SetLearningRate(learningRate);
 
     //layer
-    auto c1 = nn->CreateLayer<CuConvolutionLayer>(16, 2, 3, 3);
+    auto c1 = nn->CreateLayer<Conv2d>(16, 2, 3, 3, Size2D{ 1,1 });
     c1->alpha = 0.0;
-    c1->padH = 1;
-    c1->padW = 1;
     root = c1;
 
-    auto c2 = nn->CreateLayer<CuConvolutionLayer>(16, 16, 3, 3);
+    auto c2 = nn->CreateLayer<Conv2d>(16, 16, 3, 3, Size2D{ 1,1 });
     c2->alpha = 0.0;
-    c2->padH = 1;
-    c2->padW = 1;
     c1->AddLayer(c2);
 
     //1d conv
-    auto c3 = nn->CreateLayer<CuConvolutionLayer>(1, 16, 1, 1);
-    c3->padH = 0;
-    c3->padW = 0;
+    auto c3 = nn->CreateLayer<Conv2d>(1, 16, 1, 1);
     c2->AddLayer(c3);
 
     auto relu = nn->CreateLayer<CuReluLayer>();

@@ -55,8 +55,9 @@ int main()
 
     //test_cnn_linear();
     //test_cnn_conv();
+    //test_dnn_conv();
     //test_cnn_tictac();
-    //mnist_test();
+    mnist_test();
 
     BinaryStream bs;
     bs.loadFromFile("tictacs.bin");
