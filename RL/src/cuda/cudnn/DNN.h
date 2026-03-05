@@ -2,6 +2,8 @@
 
 #include "CuNN.h"
 #include <cudnn_backend.h>
+#include <cublasLt.h>
+
 
 class DNN : public CuNN {
 public:
@@ -11,10 +13,13 @@ public:
     T* CreateDnnLayer(Args&&... args)
     {
         layers.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
-        T* res = static_cast<T*>(layers.back().get());
+        T* res = dynamic_cast<T*>(layers.back().get());
         res->nn = this;
         res->dnn = this;
         return res;
     }
+    virtual void InitInput(const Tensor& tensor) override;
+    virtual void Connect(CuLayer* l1, CuLayer* l2) override;
     cudnnHandle_t handle_ = nullptr;
+    cublasLtContext* ltHandle = nullptr;
 };

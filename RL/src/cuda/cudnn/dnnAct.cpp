@@ -1,4 +1,4 @@
-#include "dnnAct.h"
+#include "DnnAct.h"
 #include <cudnn_backend.h>
 #include <cudnn.h>
 #include "DNN.h"
@@ -120,6 +120,8 @@ void DnnActLayer::backwardEx() {
 
 void DnnActLayer::BindWorkspace(void* ptr) {
     ActivationLayer::BindWorkspace(ptr);
+    output->Create();
+
     cudnnDataType_t dataType = CUDNN_DATA_FLOAT;
 
     int dimA[4] = {input->shape.N, input->shape.C, input->shape.H, input->shape.W};

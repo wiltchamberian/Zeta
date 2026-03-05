@@ -26,9 +26,7 @@ public:
     cudnnConvolutionBwdDataAlgo_t algo_bwd = CUDNN_CONVOLUTION_BWD_DATA_ALGO_0;
     cudnnConvolutionBwdFilterAlgo_t algo_filter_bwd = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
 
-    cudnnTensorDescriptor_t cudnnIdesc;
     cudnnFilterDescriptor_t cudnnFdesc;
-    cudnnTensorDescriptor_t cudnnOdesc;
     cudnnTensorDescriptor_t cudnnBdesc;
     cudnnActivationDescriptor_t cudnnAdesc;
     cudnnConvolutionDescriptor_t cudnnConvDesc;

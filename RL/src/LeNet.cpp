@@ -75,38 +75,47 @@ void LeNet::Backward() {
         } \
     } while (0)
 
-int test() {
+int testBlasLt() {
+    // ==========================================
+    // Dimensions
+    // ==========================================
+    const int batch = 2;// 32;
+    const int in_features = 2;// 128;
+    const int out_features = 2;// 64;
 
-    // ========================
-    // Matrix dimensions
-    // X: [batch, in_features]
-    // W: [out_features, in_features]
-    // Y: [batch, out_features]
-    // ========================
+    Tensor w(2, 2);
+    Tensor x(2, 2);
+    Tensor y(2, 2);
+    x(0, 0) = 1; x(0, 1) = 2; x(1, 0) =3; x(1, 1) = 4;
+    w(0, 0) = 1; w(0, 1) = 2; w(1, 0) = 3; w(1, 1) = 4;
 
-    const int batch = 32;
-    const int in_features = 128;
-    const int out_features = 64;
 
     const int m = batch;
     const int n = out_features;
     const int k = in_features;
 
-    float* d_X, * d_W, * d_Y;
+    // ==========================================
+    // Allocate device memory
+    // ==========================================
+    float* d_X; //batch * in_features
+    float* d_W; //out_features * in_featurs
+    float* d_Y; //batch * out_features
 
     CHECK_CUDA(cudaMalloc((void**)(&d_X), m * k * sizeof(float)));
     CHECK_CUDA(cudaMalloc((void**)(&d_W), n * k * sizeof(float)));
     CHECK_CUDA(cudaMalloc((void**)(&d_Y), m * n * sizeof(float)));
 
-    // ========================
+    CHECK_CUDA(cudaMemcpy((void*)d_X, (void*)x.data(), m * k * sizeof(float),cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy((void*)d_W, (void*)w.data(), n * k * sizeof(float), cudaMemcpyHostToDevice));
+    // ==========================================
     // Create cuBLASLt handle
-    // ========================
+    // ==========================================
     cublasLtHandle_t ltHandle;
     CHECK_CUBLAS(cublasLtCreate(&ltHandle));
 
-    // ========================
-    // Operation descriptor
-    // ========================
+    // ==========================================
+    // Matmul descriptor
+    // ==========================================
     cublasLtMatmulDesc_t operationDesc;
     CHECK_CUBLAS(
         cublasLtMatmulDescCreate(
@@ -116,7 +125,7 @@ int test() {
         )
     );
 
-    // We want Y = X * W^T
+    // We compute Y = X * W^T
     cublasOperation_t transA = CUBLAS_OP_N;
     cublasOperation_t transB = CUBLAS_OP_T;
 
@@ -132,13 +141,15 @@ int test() {
         &transB,
         sizeof(transB)));
 
-    // ========================
-    // Matrix layout descriptors
-    // ========================
+    // ==========================================
+    // Layouts (ROW-MAJOR)
+    // ==========================================
 
     cublasLtMatrixLayout_t layoutA, layoutB, layoutC;
 
-    // A: X (m x k)
+    cublasLtOrder_t order = CUBLASLT_ORDER_ROW;
+
+    // A: X (m x k), row-major ¡ú ld = k
     CHECK_CUBLAS(
         cublasLtMatrixLayoutCreate(
             &layoutA,
@@ -147,7 +158,16 @@ int test() {
         )
     );
 
-    // B: W (n x k) but transposed in op
+    CHECK_CUBLAS(
+        cublasLtMatrixLayoutSetAttribute(
+            layoutA,
+            CUBLASLT_MATRIX_LAYOUT_ORDER,
+            &order,
+            sizeof(order)
+        )
+    );
+
+    // B: W (n x k), row-major ¡ú ld = k
     CHECK_CUBLAS(
         cublasLtMatrixLayoutCreate(
             &layoutB,
@@ -156,7 +176,16 @@ int test() {
         )
     );
 
-    // C: Y (m x n)
+    CHECK_CUBLAS(
+        cublasLtMatrixLayoutSetAttribute(
+            layoutB,
+            CUBLASLT_MATRIX_LAYOUT_ORDER,
+            &order,
+            sizeof(order)
+        )
+    );
+
+    // C: Y (m x n), row-major ¡ú ld = n
     CHECK_CUBLAS(
         cublasLtMatrixLayoutCreate(
             &layoutC,
@@ -165,12 +194,21 @@ int test() {
         )
     );
 
+    CHECK_CUBLAS(
+        cublasLtMatrixLayoutSetAttribute(
+            layoutC,
+            CUBLASLT_MATRIX_LAYOUT_ORDER,
+            &order,
+            sizeof(order)
+        )
+    );
+
+    // ==========================================
+    // Execute matmul
+    // ==========================================
+
     float alpha = 1.0f;
     float beta = 0.0f;
-
-    // ========================
-    // Run matmul
-    // ========================
 
     CHECK_CUBLAS(
         cublasLtMatmul(
@@ -182,20 +220,22 @@ int test() {
             &beta,
             d_Y, layoutC,
             d_Y, layoutC,
-            nullptr,
-            nullptr,
-            0,
-            0
+            nullptr,        // algo
+            nullptr,        // workspace
+            0,              // workspace size
+            0               // stream
         )
     );
 
     CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaMemcpy(y.data(), d_Y, m* n * sizeof(float), cudaMemcpyDeviceToHost));
 
-    std::cout << "Matmul done!" << std::endl;
+    y.print_torch_style();
+    std::cout << "Row-major Matmul Done!" << std::endl;
 
-    // ========================
+    // ==========================================
     // Cleanup
-    // ========================
+    // ==========================================
 
     cublasLtMatrixLayoutDestroy(layoutA);
     cublasLtMatrixLayoutDestroy(layoutB);
@@ -208,4 +248,5 @@ int test() {
     cudaFree(d_Y);
 
     return 0;
+
 }

@@ -3,6 +3,8 @@
 
 class MaxPool2d : public CuLayer{
 public:
+    MaxPool2d();
+    MaxPool2d(int h, int w);
     virtual void forward();
     virtual void backwardEx();
     virtual void applyGradient();

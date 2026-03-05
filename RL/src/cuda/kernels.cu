@@ -235,7 +235,7 @@ __global__ void max_pool_2d_forward_kernel(
 
     if (i >= H || j >= W || k>=N) return;
 
-    float maxVal = -INFINITY;
+    float maxVal = -FLT_MAX;
     int maxIdx = -1;
     int Ww = W * w;
     int WwHh = Ww * H * h;
@@ -510,8 +510,8 @@ struct SoftmaxState {
 __device__ SoftmaxState reduceOp(SoftmaxState a, SoftmaxState b) {
     SoftmaxState res;
     res.m = fmaxf(a.m, b.m);
-    float factor_a = (a.m == -INFINITY) ? 0.0f : __expf(a.m - res.m);
-    float factor_b = (b.m == -INFINITY) ? 0.0f : __expf(b.m - res.m);
+    float factor_a = (a.m == -FLT_MAX) ? 0.0f : __expf(a.m - res.m);
+    float factor_b = (b.m == -FLT_MAX) ? 0.0f : __expf(b.m - res.m);
     res.d = a.d * factor_a + b.d * factor_b;
     return res;
 }
@@ -582,7 +582,7 @@ __global__ void simple_softmax_forward_kernel(
     const float* row_input = input + row * M;
     float* row_output = output + row * M;
 
-    float m = -INFINITY;
+    float m = -FLT_MAX;
     for (int i = 0; i < M; i++) m = fmaxf(m, row_input[i]);
     float sum = 0;
     for (int i = 0; i < M; i++) {
@@ -606,7 +606,7 @@ __global__ void softmax_forward_kernel(
     float* row_output = output + row * M;
 
     // Each thread processes elements in a strided loop
-    SoftmaxState localState = { -INFINITY, 0.0f };
+    SoftmaxState localState = { -FLT_MAX , 0.0f };
     for (int i = threadIdx.x; i < M; i += blockDim.x) {
         float val = static_cast<float>(row_input[i]);
         float new_m = fmaxf(localState.m, val);
@@ -633,7 +633,7 @@ __global__ void softmax_forward_kernel(
     if (warpId == 0) {
         SoftmaxState warpState = (tid < numWarps) ?
             SoftmaxState{ shared_m[tid], shared_d[tid] } :
-            SoftmaxState{ -INFINITY, 0.0f };
+            SoftmaxState{ -FLT_MAX , 0.0f };
 
         warpState = warpReduceSoftmax(warpState);
 

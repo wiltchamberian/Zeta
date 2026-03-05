@@ -24,16 +24,7 @@ size_t CuLayer::GetDeltaSize() {
 }
 
 CuLayer* CuLayer::AddLayer(CuLayer* layer) {
-    this->nexts.push_back(layer);
-    layer->prevs.push_back(this);
-    if (this->output == nullptr) {
-        CuTensor* tensor = nn->CreateTensor<CuTensor>();
-        this->output = tensor;
-        layer->input = tensor;
-    }
-    else {
-        ;
-    }
+    nn->Connect(this, layer);
     return layer;
 }
 
@@ -91,24 +82,6 @@ void CuLinearLeakyReluLayer::forward() { /* kernel launch */
     //cudaMemcpy(dd, dl.activation, out_dim * sizeof(float), cudaMemcpyDeviceToHost);
 }
 
-void CuLinearLeakyReluLayer::backward(const float* delta_next, const float* w_next) {
-    int dim_delta = dl.in_dim;
-    int dim_delta_next = dl.b_size;
-    dim3 block(TILE_WIDTH, TILE_WIDTH);
-    dim3 grid((input->shape.N + block.x - 1) / block.x, (dim_delta + block.y - 1) / block.y);
-    linear_leaky_relu_backward_kernel << <grid, block >> > (
-        delta_next,        // δ^{l+1}
-        w_next,
-        output->v,       // z^l (或 a^{l-1} 用于 σ'(z))
-        output->delta,            // δ^l 输出
-        false,
-        input->shape.N,
-        dim_delta,
-        dim_delta_next,
-        alpha
-        );
-}
-
 void CuLinearLeakyReluLayer::backwardEx() {
     add = false;
     dgrad();
@@ -117,7 +90,6 @@ void CuLinearLeakyReluLayer::backwardEx() {
     if (nn->c != 0) {
         regular_grad();
     }
-    
 }
 
 void CuLinearLeakyReluLayer::applyGradient() {
@@ -153,8 +125,8 @@ void CuLinearLeakyReluLayer::dgrad() {
         );
     prevs[0]->add = true;
 
-    float delta[16];
-    cudaMemcpy(delta, dl.weights, 16 * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    //float delta[16];
+    //cudaMemcpy(delta, dl.weights, 16 * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     //float prevAc[16];
     //cudaMemcpy(prevAc, prev_activation, dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     //float test[16];
@@ -525,7 +497,7 @@ void CuSoftmaxCrossEntropyLayer::InferOutputShape(TensorShape networkInput) {
 
     //this->inputShape = shape;
     //this->outputShape = result;
-    this->output->shape = result;
+    this->output->InitShape(result);
     return;
 }
 
@@ -731,7 +703,7 @@ void Conv2d::InferOutputShape(TensorShape networkInput) {
     result.W = (shape.W + padW * 2 - weights.shape[3]) / strideW + 1;
     //this->inputShape = shape;
     //this->outputShape = result;
-    this->output->shape = result;
+    this->output->InitShape(result);
     return ;
 
 }

@@ -46,3 +46,13 @@ void generateStrides(const int* dimA, int* strideA, int nbDims, cudnnTensorForma
             assert(false);\
         } \
     } while (0)
+
+
+#define BLAS_CHECK(call) \
+    do { \
+        cublasStatus_t status = call; \
+        if (status != CUBLAS_STATUS_SUCCESS) { \
+            std::cerr << "cuBLASLt error\n"; \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)

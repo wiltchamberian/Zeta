@@ -10,6 +10,18 @@
 
 #include "kernels.h"
 
+CuNN::CuNN(float lr)
+    :learningRate(lr)
+    , deviceMemorySize(0)
+    , deviceMemory(nullptr)
+    , deviceWorkspace(nullptr)
+{
+}
+
+CuNN::~CuNN() {
+    ReleaseDeviceMemory();
+}
+
 void CuNN::SetLabel(const Tensor& tensor) {
     label = tensor;
 }
@@ -21,6 +33,33 @@ TensorShape CuNN::Build(TensorShape shape) {
         });
     AllocDeviceMemory();
     return shape;
+}
+
+void CuNN::InitInput(const Tensor& tensor) {
+    if (input == nullptr) {
+        input = std::make_unique<CuTensor>();
+        input->InitShape(tensor);
+    }
+    else {
+        TensorShape ts = getTensorShape(tensor);
+        if (input->shape != ts) {
+            input->InitShape(ts);
+        }
+    }
+}
+
+void CuNN::Connect(CuLayer* l1, CuLayer* l2) {
+    l1->nexts.push_back(l2);
+    l2->prevs.push_back(l1);
+    if (l1->output == nullptr) {
+        CuTensor* tensor = this->CreateTensor<CuTensor>();
+        l1->output = tensor;
+        l2->input = tensor;
+    }
+    else {
+        ;
+    }
+    return ;
 }
 
 void CuNN::Clear() {
@@ -144,36 +183,15 @@ void CuNN::Forward(const Tensor& x) {
     
     batchSize = x.shape[0];
 
-    TensorShape ts;
-    int rk = x.rank();
-    if (rk == 1) {
-        ts.N = x.shape[0];
-    }
-    else if (rk == 2) {
-        ts.N = x.shape[0];
-        ts.C = x.shape[1];
-    }
-    else if (rk == 3) {
-        ts.N = x.shape[0];
-        ts.C = x.shape[1];
-        ts.H = x.shape[2];
-    }
-    else if (rk == 4) {
-        ts.N = x.shape[0];
-        ts.C = x.shape[1];
-        ts.H = x.shape[2];
-        ts.W = x.shape[3];
-    }
-    else {
-        assert(false);
-    }
-    input->shape = ts;
+    InitInput(x);
+
+
     if (head == nullptr) {
         head = findRootLayer();
     }
-    
     head->input = input.get();
-    
+    TensorShape ts = input->shape;
+
     Travel([ts](CuLayer* l)->bool {
         l->InferOutputShape(ts);
         return false;
@@ -395,6 +413,33 @@ void CuNN::CleanRefs() {
     for (int i = 0; i < layers.size();++i) {
         layers[i]->ref = nullptr;
     }
+}
+
+TensorShape CuNN::getTensorShape(const Tensor& x) const{
+    TensorShape ts;
+    int rk = x.rank();
+    if (rk == 1) {
+        ts.N = x.shape[0];
+    }
+    else if (rk == 2) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+    }
+    else if (rk == 3) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+        ts.H = x.shape[2];
+    }
+    else if (rk == 4) {
+        ts.N = x.shape[0];
+        ts.C = x.shape[1];
+        ts.H = x.shape[2];
+        ts.W = x.shape[3];
+    }
+    else {
+        assert(false);
+    }
+    return ts;
 }
 
 void CuNN::Print() {

@@ -2,6 +2,17 @@
 #include "kernels.h"
 #include "CuNN.h"
 
+MaxPool2d::MaxPool2d() {
+
+
+}
+
+MaxPool2d::MaxPool2d(int H, int W)
+:h(H)
+,w(W){
+
+}
+
 void MaxPool2d::forward() {
     const float* in = input->v;
     int N = nn->batchSize * output->shape.C;

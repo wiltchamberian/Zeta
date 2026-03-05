@@ -162,14 +162,14 @@ public:
     }
 
     static void WriteBinary(std::vector<TicTac>& tictacs, BinaryStream& stream) {
-        stream.write<size_t>(tictacs.size());
+        stream.write<int>(tictacs.size());
         for (int i = 0; i < tictacs.size(); ++i) {
             tictacs[i].WriteBinary(stream);
         }
     }
 
     static std::vector<TicTac> ReadBinary(BinaryStream& stream) {
-        size_t siz = stream.read<size_t>();
+        int siz = stream.read<int>();
         std::vector<TicTac> vec(siz);
         for (int i = 0; i < siz; ++i) {
             vec[i].ReadFromBinary(stream);

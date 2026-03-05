@@ -5,6 +5,7 @@
 #include "DnnHelp.h"
 #include "cu_tool.h"
 #include "kernels.h"
+#include "DnnTensor.h"
 
 DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride)
 {
@@ -17,9 +18,6 @@ DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride)
     padW = padding.w;
     strideH = stride.h;
     strideW = stride.w;
-
-    DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnIdesc));
-    DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnOdesc));
 
     DNN_CHECK(cudnnCreateFilterDescriptor(&cudnnFdesc));
     DNN_CHECK(cudnnCreateConvolutionDescriptor(&cudnnConvDesc));
@@ -64,8 +62,6 @@ DnnConv::~DnnConv() {
     if (workSpaceBwd) {
         cudaFree(workSpaceBwd);
     }
-    DNN_CHECK(cudnnDestroyTensorDescriptor(cudnnIdesc));
-    DNN_CHECK(cudnnDestroyTensorDescriptor(cudnnOdesc));
 
     DNN_CHECK(cudnnDestroyFilterDescriptor(cudnnFdesc));
     DNN_CHECK(cudnnDestroyConvolutionDescriptor(cudnnConvDesc));
@@ -75,19 +71,11 @@ DnnConv::~DnnConv() {
 
 void DnnConv::BindWorkspace(void* ptr) {
     Conv2d::BindWorkspace(ptr);
-
-    int dimA_padded[4] = {input->shape.N, input->shape.C, input->shape.H, input->shape.W};
-    int strideA_padded[4] = {};
-    generateStrides(dimA_padded, strideA_padded, 4, filterFormat);
-    int outdimA_padded[4] = { output->shape.N, output->shape.C, output->shape.H, output->shape.W };
-    int outstrideA_padded[4] = {};
-    generateStrides(outdimA_padded, outstrideA_padded, 4, filterFormat);
-    DNN_CHECK(cudnnSetTensorNdDescriptor(cudnnIdesc, dataType, convDim + 2, dimA_padded, strideA_padded));
-    DNN_CHECK(cudnnSetTensorNdDescriptor(cudnnOdesc, dataType, convDim + 2, outdimA_padded, outstrideA_padded));
+    output->Create();
 
     size_t oldSize = workSpaceSize;
     auto status = cudnnGetConvolutionForwardWorkspaceSize(
-        dnn->handle_, cudnnIdesc, cudnnFdesc, cudnnConvDesc, cudnnOdesc, algo, &workSpaceSize);
+        dnn->handle_, input->desc->cudnnDesc, cudnnFdesc, cudnnConvDesc, output->desc->cudnnDesc, algo, &workSpaceSize);
     if (status != CUDNN_STATUS_SUCCESS) {
         std::cout << "error!" << std::endl;
         assert(false);
@@ -97,12 +85,12 @@ void DnnConv::BindWorkspace(void* ptr) {
 
     size_t oldSizeBwd = workSpaceSizeBwd;
     DNN_CHECK(cudnnGetConvolutionBackwardDataWorkspaceSize(
-        dnn->handle_, cudnnFdesc, cudnnOdesc, cudnnConvDesc, cudnnIdesc, algo_bwd, &workSpaceSizeBwd));
+        dnn->handle_, cudnnFdesc, output->desc->cudnnDesc, cudnnConvDesc, input->desc->cudnnDesc, algo_bwd, &workSpaceSizeBwd));
     workSpaceReAlloc(&workSpaceBwd, workSpaceSizeBwd, oldSizeBwd);
     
     size_t oldSizeFilterBwd = workSpaceFilterSizeBwd;
     DNN_CHECK(cudnnGetConvolutionBackwardFilterWorkspaceSize(
-        dnn->handle_, cudnnIdesc, cudnnOdesc, cudnnConvDesc, cudnnFdesc, algo_filter_bwd, &workSpaceFilterSizeBwd));
+        dnn->handle_, input->desc->cudnnDesc, output->desc->cudnnDesc, cudnnConvDesc, cudnnFdesc, algo_filter_bwd, &workSpaceFilterSizeBwd));
     workSpaceReAlloc(&workSpaceFilterBwd, workSpaceFilterSizeBwd, oldSizeFilterBwd);
 
 
@@ -117,7 +105,7 @@ void DnnConv::forward() {
     float beta = 0.0;
     DNN_CHECK(cudnnConvolutionForward(dnn->handle_,
         (void*)(&alpha),
-        cudnnIdesc,
+        input->desc->cudnnDesc,
         devPtrI,
         cudnnFdesc,
         devPtrF,
@@ -126,7 +114,7 @@ void DnnConv::forward() {
         workSpace,
         workSpaceSize,
         (void*)(&beta),
-        cudnnOdesc,
+        output->desc->cudnnDesc,
         devPtrO));
 
     int C = output->shape.C;
@@ -186,16 +174,16 @@ void DnnConv::dgrad() {
         (void*)(&alpha1),
         cudnnFdesc,
         dl.weights,
-        cudnnOdesc,
+        output->desc->cudnnDesc,
         output->delta,
         cudnnConvDesc,
         algo_bwd,
         workSpaceBwd,
         workSpaceSizeBwd,
         (void*)(&beta1),
-        cudnnIdesc,
+        input->desc->cudnnDesc,
         input->delta));
-    
+    prev->add = true;
 }
 
 void DnnConv::wgrad() {
@@ -204,9 +192,9 @@ void DnnConv::wgrad() {
     float beta2 = 0.0f;
     auto status = cudnnConvolutionBackwardFilter(dnn->handle_,
         &alpha2,
-        cudnnIdesc,
+        input->desc->cudnnDesc,
         x,
-        cudnnOdesc, //should be the same as DyDesc,
+        output->desc->cudnnDesc, //should be the same as DyDesc,
         output->delta,
         cudnnConvDesc,
         algo_filter_bwd,
@@ -226,7 +214,7 @@ void DnnConv::bgrad() {
     float beta2 = 0.0f;
     auto status = cudnnConvolutionBackwardBias(dnn->handle_,
         &alpha2,
-        cudnnOdesc,
+        output->desc->cudnnDesc,
         output->delta,
         &beta2,
         cudnnBdesc,

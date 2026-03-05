@@ -96,9 +96,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
-    <CudaCompile Include="src\cnn_test.cu" />
     <CudaCompile Include="src\cuda\cudnn\DnnConv.cpp" />
     <CudaCompile Include="src\cuda\cudnn\DNN.cpp" />
+    <CudaCompile Include="src\cuda\cudnn\DnnLinear.cu" />
     <CudaCompile Include="src\cuda\cuLayer.cu" />
     <CudaCompile Include="src\cuda\CuNN.cu" />
     <CudaCompile Include="src\cuda\cu_tool.cu" />
@@ -114,10 +114,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Activation.cpp" />
+    <ClCompile Include="src\cnn_test.cpp" />
     <ClCompile Include="src\cuda\activationLayer.cpp" />
     <ClCompile Include="src\cuda\cudnnBackend.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnHelp.cpp" />
-    <ClCompile Include="src\cuda\cudnn\dnnAct.cpp" />
+    <ClCompile Include="src\cuda\cudnn\DnnAct.cpp" />
+    <ClCompile Include="src\cuda\cudnn\DnnPooling.cpp" />
+    <ClCompile Include="src\cuda\cudnn\DnnSoftmax.cpp" />
+    <ClCompile Include="src\cuda\cudnn\DnnTensor.cpp" />
+    <ClCompile Include="src\cuda\CuTensor.cpp" />
     <ClCompile Include="src\fp16_emu.cpp" />
     <ClCompile Include="src\Go.cpp" />
     <ClCompile Include="src\Layer.cpp" />
@@ -133,13 +138,19 @@
   <ItemGroup>
     <ClInclude Include="src\Activation.h" />
     <ClInclude Include="src\binary.h" />
+    <ClInclude Include="src\cnn_test.h" />
     <ClInclude Include="src\cuda\activationLayer.h" />
     <ClInclude Include="src\cuda\cudnn\DnnConv.h" />
     <ClInclude Include="src\cuda\cudnn\DNN.h" />
     <ClInclude Include="src\cuda\cudnn\DnnHelp.h" />
-    <ClInclude Include="src\cuda\cudnn\dnnAct.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnAct.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnLinear.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnPooling.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnSoftmax.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnTensor.h" />
     <ClInclude Include="src\cuda\cuLayer.h" />
     <ClInclude Include="src\cuda\CuNN.h" />
+    <ClInclude Include="src\cuda\CuTensor.h" />
     <ClInclude Include="src\cuda\cu_tool.h" />
     <ClInclude Include="src\cuda\kernels.h" />
     <ClInclude Include="src\cuda\mat.cuh" />

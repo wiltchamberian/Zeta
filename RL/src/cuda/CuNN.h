@@ -48,24 +48,15 @@ class CuNN
 public:
     float learningRate = 1.0;
 
-    CuNN(float lr = 1.0)
-        :learningRate(lr)
-        ,deviceMemorySize(0)
-        ,deviceMemory(nullptr)
-        ,deviceWorkspace(nullptr)
-    {
-        input = std::make_unique<CuTensor>();
-    }
+    CuNN(float lr = 1.0);
 
-    ~CuNN() {
-        ReleaseDeviceMemory();
-    }
+    ~CuNN();
 
     template<typename T, typename... Args>
     T* CreateLayer(Args&&... args)
     {
         layers.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
-        T* res =  static_cast<T*>(layers.back().get());
+        T* res =  dynamic_cast<T*>(layers.back().get());
         res->nn = this;
         return res;
     }
@@ -77,6 +68,10 @@ public:
         T* res = static_cast<T*>(tensors.back().get());
         return res;
     }
+
+    virtual void InitInput(const Tensor& tensor);
+
+    virtual void Connect(CuLayer* l1, CuLayer* l2);
 
     //reset to the state of just created, only keep the learning rate
     void Clear();
@@ -136,6 +131,7 @@ public:
     int batchSize = 0;
     float c = 0.0f; //regularization parameter
 
+    TensorShape getTensorShape(const Tensor& tensor) const;
     void* GetDeviceMemory() { return deviceMemory; }
     void* GetWorkspace() { return deviceWorkspace; }
     int GetDeiviceSize() { return deviceMemorySize;  }

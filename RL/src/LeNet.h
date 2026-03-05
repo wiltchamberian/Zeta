@@ -21,6 +21,5 @@ public:
 
 };
 
-void test_lenet();
 
 
