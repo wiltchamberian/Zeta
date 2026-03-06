@@ -120,8 +120,8 @@ void mnist_test() {
 
     LeNet nn;
     nn.SetLearningRate(0.01);
-    nn.c = 0.0001;
-    nn.createNetwork();
+    //nn.c = 0.0001;
+    nn.createDnnNetwork();
 
     int batchSize = 64;
     int epochs = 20;
@@ -153,21 +153,59 @@ void mnist_test() {
         }
         labels.push_back(label);
     }
+
+    //batchData[2][0].print_torch_style();
+    //labels[0][0].print_torch_style();
+    auto epoch_start = std::chrono::high_resolution_clock::now();
     for (int epoch = 0; epoch < epochs; epoch++) {
         for (int b = 0; b < numBatches; b++) {
             nn.Forward(batchData[b]);
             nn.head->label = labels[b];
             nn.head->BindLabelToDevice();
 
-            //nn.fc2->FetchResultToCpu();
-            nn.Backward();
+            //nn.c2->PrintActivation();
+            //nn.fc->PrintActivation();
+            //nn.c1->PrintActivation();
+            //nn.fc2->PrintActivation();
 
+            nn.Backward();
+            
+            //if (epoch == 0 && b == 0) {
+            //    nn.FetchGrad();
+            //    //nn.c1->PrintGrad();
+            //    //nn.c2->PrintGrad();
+            //    //nn.PrintGrad();
+            //    nn.fc2->PrintGrad();
+            //    Tensor loss = nn.head->FetchLoss();
+            //    loss.print_torch_style();
+            //    break;
+            //}
             //nn.fc2->FetchResultToCpu();
 
             //nn.ErrorCheck();
+
+            /*nn.fc2->PrintActivation();
+            nn.head->label.print_torch_style("label:");
+            nn.head->PrintActivation();
+            nn.fc2->PrintDelta();
+            nn.fc2->PrintBGrad();
+
+            nn.fc->PrintDelta();
+            nn.fc->PrintBGrad();*/
+
+            //nn.c2->PrintWGrad();
+            //nn.c2->PrintBGrad();
+
+            /*nn.c1->PrintWGrad();
+            nn.c1->PrintBGrad();
+
+            auto loss = nn.head->FetchLoss();
+            loss.print_torch_style();
+            std::cout << std::endl;*/
             if (b % 100 == 0) {
                 auto loss = nn.head->FetchLoss();
-                std::cout << "eoch:" << epoch << "loss:" << loss << std::endl;
+                std::cout << "Epoch " << epoch << "Batch " << b;
+                loss.print_torch_style(", Loss ");
             }
 
             nn.Step();
@@ -175,6 +213,11 @@ void mnist_test() {
             
         }
     }
+    auto epoch_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> epoch_duration = epoch_end - epoch_start;
+    std::cout << " finished, total time: "
+        << std::fixed << std::setprecision(3)
+        << epoch_duration.count() << " s" << std::endl;
 
     //test
     int correct = 0;

@@ -15,6 +15,7 @@ public:
     MaxPool2d* maxpool = nullptr;
     Conv2d* c2 = nullptr;
     CuReluLayer* relu2 = nullptr;
+    CuReluLayer* relu3 = nullptr;
     Linear* fc = nullptr;
     Linear* fc2 = nullptr;
 

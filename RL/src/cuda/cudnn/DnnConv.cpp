@@ -8,23 +8,14 @@
 #include "DnnTensor.h"
 
 DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride)
+    :Conv2d(K,C,R,S,padding,stride)
 {
-    weights = Tensor(K, C, R, S);
-    b = Tensor(K);
-    dl.w_size = K * C * R * S;
-    dl.b_size = K;
-
-    padH = padding.h;
-    padW = padding.w;
-    strideH = stride.h;
-    strideW = stride.w;
-
     DNN_CHECK(cudnnCreateFilterDescriptor(&cudnnFdesc));
     DNN_CHECK(cudnnCreateConvolutionDescriptor(&cudnnConvDesc));
     DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnBdesc));
     DNN_CHECK(cudnnCreateActivationDescriptor(&cudnnAdesc));
     
-    initImage(weights.data(), dl.w_size);
+    //initImage(weights.data(), dl.w_size);
 
     int filterdimA_padded[4] = { K,C,R,S };
     int strideA_padded[4];

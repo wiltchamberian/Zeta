@@ -546,7 +546,7 @@ __global__ void cross_entropy_kernel(
     int numWarps = blockDim.x / WARP_SIZE;
 
     for (int i = threadIdx.x; i < total;  i += blockDim.x) {
-        //float p_safe = fmaxf(p[i], 1e-8f);
+        float p_safe = fmaxf(p[i], 1e-8f);
         cross += ( - logf(p[i]) * y[i]);
     }
 
@@ -570,6 +570,51 @@ __global__ void cross_entropy_kernel(
     return;
 
 
+}
+
+//from chatgpt, simple stable version, not optimized
+//only works for classes <= block_size
+__global__ void stable_cross_entropy_kernel(
+    const float* logits,
+    const float* labels,
+    float* Loss,
+    int batch,
+    int classes)
+{
+    int b = blockIdx.x;
+
+    if (b >= batch) return;
+
+    const float* x = logits + b * classes;
+    const float* label = labels + b * classes; 
+
+    // 1 找最大值
+    float maxv = x[0];
+    for (int i = 1; i < classes; i++)
+    {
+        maxv = fmaxf(maxv, x[i]);
+    }
+
+    // 2 计算 exp(x - max)
+    float sum = 0.0f;
+    for (int i = 0; i < classes; i++)
+    {
+        sum += expf(x[i] - maxv);
+    }
+
+    // 3 logsumexp
+    float logsumexp = maxv + logf(sum);
+
+    // 4 loss
+    float loss = 0;
+    for (int i = 0; i < classes; i++) {
+        loss += (logsumexp - x[i]) * label[i];
+    }
+
+    if (b == 0) {
+
+    }
+    Loss[0] = loss;
 }
 
 

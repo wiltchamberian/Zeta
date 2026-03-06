@@ -421,11 +421,12 @@ void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
     valueHead->BindLabelToDevice();
 
 
-    float crossLoss = policyHead->FetchLoss();
-    float mseLoss = valueHead->FetchLoss();
-    float loss = crossLoss + mseLoss;
-    std::cout << "loss:" << loss << " mse:" << mseLoss << " cross:" << crossLoss << std::endl;
-
+    Tensor crossLoss = policyHead->FetchLoss();
+    Tensor mseLoss = valueHead->FetchLoss();
+    Tensor loss = crossLoss + mseLoss;
+    loss.print_torch_style("loss:");
+    mseLoss.print_torch_style("mse:");
+    crossLoss.print_torch_style("cross:");
 
 
     nn->Backward();

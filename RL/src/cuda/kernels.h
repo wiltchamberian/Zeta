@@ -161,6 +161,13 @@ __global__ void cross_entropy_kernel(
     int batch,
     int total);
 
+__global__ void stable_cross_entropy_kernel(
+    const float* logits,
+    const float* labels,
+    float* Loss,
+    int batch,
+    int classes);
+
 __global__ void simple_softmax_forward_kernel(
     const float* input,
     float* output,

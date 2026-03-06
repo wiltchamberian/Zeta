@@ -197,7 +197,10 @@ public:
     virtual void FetchGradToCpu();
     virtual CuLayer* Clone() const;
     void FetchActivationToCpu();
+    void PrintActivation();
     void PrintDelta();
+    void PrintBGrad();
+    void PrintWGrad();
     virtual void Save(std::fstream fs);
     float GetAlpha() {
         return alpha;
@@ -234,7 +237,7 @@ public:
     CuSoftmaxCrossEntropyLayer()  {
         layerType = LayerType::Softmax;
     }
-    float FetchLoss();
+    Tensor FetchLoss();
     void forward();
     void backwardEx();
     void applyGradient();
@@ -250,6 +253,7 @@ public:
     void FetchPredYToCpu();
     void PrintPredY();
     void FetchActivationToCpu();
+    void PrintActivation();
 
     Tensor label;
     float* yLabel = nullptr;
@@ -319,10 +323,13 @@ public:
     void PrintDelta();
     void Print();
     void PrintGrad();
+    void PrintBGrad();
+    void PrintWGrad();
     
     void FetchResultToCpu();
     void FetchGradToCpu();
     void FetchActivationToCpu();
+    void PrintActivation();
     void FetchDeltaToCpu();
 
     float GetAlpha() {

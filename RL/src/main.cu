@@ -54,12 +54,12 @@ int main()
     CudaGetDeviceProps();
 
     //test_cnn_linear();
-    test_dnn_linear();
+    //test_dnn_linear();
     //test_cnn_conv();
     //test_dnn_conv();
     //test_cnn_tictac();
     //test_blaslt();
-    //mnist_test();
+    mnist_test();
 
     BinaryStream bs;
     bs.loadFromFile("tictacs.bin");

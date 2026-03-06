@@ -234,6 +234,12 @@ public:
         initData();
     }
 
+    void constants(T value) {
+        if (data_) {
+            std::fill(data_->begin(), data_->end(), value);
+        }
+    }
+
     void zeros(const Shape& shape) {
         this->shape = shape;
         initData();
@@ -827,7 +833,16 @@ public:
                     if (i != N - 1) std::cout << ",";
                 }
                 else {
-                    std::cout << std::fixed << std::setprecision(4) << (*data_)[pos];
+                    double val = (*data_)[pos];
+                    if ((val != 0.0) && (std::abs(val) < 1e-4 || std::abs(val) > 1e4)) {
+                        // 科学计数法
+                        std::cout << std::scientific << std::setprecision(5) << val;
+                    }
+                    else {
+                        // 固定小数
+                        std::cout << std::fixed << std::setprecision(4) << val; // 可调精度
+                    }
+                    //std::cout << std::scientific /*std::fixed*/ << std::setprecision(5) << (*data_)[pos];
                     if (i != N - 1) std::cout << ", ";
                 }
             }
@@ -836,7 +851,22 @@ public:
 
         std::cout << prefix;
         if (R == 0) {
-            std::cout << (*data_)[offset]; // scalar
+            if (data() == nullptr) {
+                std::cout << "empty tensor!";
+            }
+            else {
+                double val = (*data_)[offset];
+                if ( (val!= 0.0) && (std::abs(val) < 1e-4 || std::abs(val) > 1e4)) {
+                    // 科学计数法
+                    std::cout << std::scientific << std::setprecision(5) << val;
+                }
+                else {
+                    // 固定小数
+                    std::cout << std::fixed << std::setprecision(4) << val; // 可调精度
+                }
+                //std::cout << (*data_)[offset]; // scalar
+            }
+            
         }
         else {
             print_dim(0, offset, idx, 0);

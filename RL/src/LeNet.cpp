@@ -2,6 +2,9 @@
 #include "DnnConv.h"
 #include "DNN.h"
 #include "dnnAct.h"
+#include "DnnPooling.h"
+#include "DnnLinear.h"
+#include "DnnSoftmax.h"
 #include <cublasLt.h>
 
 void LeNet::createNetwork(){
@@ -12,10 +15,11 @@ void LeNet::createNetwork(){
     c2 = CreateLayer<Conv2d>(20,10,3,3);
     relu2 = CreateLayer<CuReluLayer>();
     fc = CreateLayer<Linear>(20 * 10 * 10, 200);
+    relu3 = CreateLayer<CuReluLayer>();
     fc2 = CreateLayer<Linear>(200, 10);
     auto softmax = CreateLayer<CuSoftmaxCrossEntropyLayer>();
     c1->AddLayer(relu1)->AddLayer(maxpool)->AddLayer(c2)
-        ->AddLayer(relu2)->AddLayer(fc)->AddLayer(fc2)->AddLayer(softmax);
+        ->AddLayer(relu2)->AddLayer(fc)->AddLayer(relu3)->AddLayer(fc2)->AddLayer(softmax);
 
     head = softmax;
 
@@ -25,15 +29,25 @@ void LeNet::createNetwork(){
 void LeNet::createDnnNetwork() {
     //input: N * C* H* W
     c1 = CreateDnnLayer<DnnConv>(10, 1, 5, 5);
+    //c1->weights.constants(0.1f);
+
     auto relu1 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
-    maxpool = CreateLayer<MaxPool2d>();
+    maxpool = CreateDnnLayer<DnnPooling>(2, 2);
     c2 = CreateDnnLayer<DnnConv>(20, 10, 3, 3);
+    //c2->weights.constants(0.1f);
+
     auto relu2 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
-    fc = CreateLayer<Linear>(20 * 10 * 10, 200);
-    fc2 = CreateLayer<Linear>(200, 10);
-    auto softmax = CreateLayer<CuSoftmaxCrossEntropyLayer>();
+    fc = CreateDnnLayer<DnnLinear>(20 * 10 * 10, 200);
+    auto relu3 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    fc2 = CreateDnnLayer<DnnLinear>(200, 10);
+    //fc->weights.constants(0.1f);
+    //fc2->weights.constants(0.1f);
+
+    auto softmax = CreateDnnLayer<DnnSoftmax>();
+    auto output = CreateLayer<OutputLayer>();
     c1->AddLayer(relu1)->AddLayer(maxpool)->AddLayer(c2)
-        ->AddLayer(relu2)->AddLayer(fc)->AddLayer(fc2)->AddLayer(softmax);
+        ->AddLayer(relu2)->AddLayer(fc)->AddLayer(relu3)->AddLayer(fc2)
+        ->AddLayer(softmax)->AddLayer(output);
 
     head = softmax;
 
@@ -41,19 +55,8 @@ void LeNet::createDnnNetwork() {
 }
 
 void LeNet::Backward() {
-    head->backwardEx();
-    fc2->backwardEx();
-
-    fc->backwardEx();
-    relu2->backwardEx();
-
-    c2->backwardEx();
-
-    maxpool->backwardEx();
-
-    relu1->backwardEx();
-    c1->backwardEx();
-
+    
+    DNN::Backward();
 
 }
 

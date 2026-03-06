@@ -315,10 +315,35 @@ void CuLinearLeakyReluLayer::FetchActivationToCpu() {
     CU_CHECK(cudaMemcpy( ac.data(), output->v, output->shape.NumElements()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
-void CuLinearLeakyReluLayer::PrintDelta() {
-    Tensor delta(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
-    cudaMemcpy(delta.data(), output->delta, output->shape.NumElements()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+void CuLinearLeakyReluLayer::PrintActivation() {
+    FetchActivationToCpu();
+    ac.print_torch_style("linear:");
+}
 
+void CuLinearLeakyReluLayer::PrintDelta() {
+    if (output->shape.H == 1 && output->shape.W == 1) {
+        Tensor delta(output->shape.N, output->shape.C);
+        cudaMemcpy(delta.data(), output->delta, output->shape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+        delta.print_torch_style("delta:");
+    }
+    else {
+        Tensor delta(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
+        cudaMemcpy(delta.data(), output->delta, output->shape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+        delta.print_torch_style("delta:");
+    }
+    
+}
+
+void CuLinearLeakyReluLayer::PrintBGrad() {
+    Tensor delta(out_dim);
+    cudaMemcpy(delta.data(), dl.grad_b, out_dim * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    delta.print_torch_style("dBias:");
+}
+
+void CuLinearLeakyReluLayer::PrintWGrad() {
+    Tensor delta(out_dim, in_dim);
+    cudaMemcpy(delta.data(), dl.grad_w, out_dim * in_dim * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+    delta.print_torch_style("dW:");
 }
 
 void CuLinearLeakyReluLayer::Save(std::fstream fs) {
@@ -386,7 +411,7 @@ void CuLinearTanhLayer::dgrad() {
 /// </summary>
 /// 
 
-float CuSoftmaxCrossEntropyLayer::FetchLoss() {
+Tensor CuSoftmaxCrossEntropyLayer::FetchLoss() {
     int total = input->shape.NumElements();
     int batch = nn->batchSize;
     dim3 block(1024);
@@ -398,8 +423,11 @@ float CuSoftmaxCrossEntropyLayer::FetchLoss() {
     //cudaMemcpy(ds, y, total * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 
     cross_entropy_kernel << <grid, block >> > (output->v, yLabel, loss, batch, total);
-    float res = 0;
-    CU_CHECK(cudaMemcpy(&res, loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    //stable_cross_entropy_kernel<<<grid,block>>>()
+    
+    cudaDeviceSynchronize();
+    Tensor res(1);
+    CU_CHECK(cudaMemcpy(res.data(), loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     return res;
 }
 
@@ -512,6 +540,11 @@ void CuSoftmaxCrossEntropyLayer::PrintPredY() {
 void CuSoftmaxCrossEntropyLayer::FetchActivationToCpu() {
     distribution.zeros(output->shape.N, output->shape.C * output->shape.H * output->shape.W);
     CU_CHECK(cudaMemcpy(distribution.data(), output->v, output->shape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+}
+
+void CuSoftmaxCrossEntropyLayer::PrintActivation() {
+    FetchActivationToCpu();
+    distribution.print_torch_style("softmax:");
 }
 
 /************************************************/
@@ -1039,11 +1072,27 @@ void Conv2d::FetchGradToCpu() {
     CU_CHECK(cudaMemcpy(bias_grad.data(), dl.grad_b, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
+void Conv2d::PrintBGrad() {
+    bias_grad.zeros(b.shape);
+    CU_CHECK(cudaMemcpy(bias_grad.data(), dl.grad_b, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    bias_grad.print_torch_style("conv_Bgrad:");
+}
+
+void Conv2d::PrintWGrad() {
+    weights_grad.zeros(weights.shape);
+    CU_CHECK(cudaMemcpy(weights_grad.data(), dl.grad_w, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    weights_grad.print_torch_style("conv_Wgrad:");
+}
+
 void Conv2d::FetchActivationToCpu() {
     ac.zeros(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
     CU_CHECK(cudaMemcpy(ac.data(), output->v, output->shape.NumElements()* sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
+void Conv2d::PrintActivation() {
+    FetchActivationToCpu();
+    ac.print_torch_style("conv2d:");
+}
 
 void CuLayer::test_cudnn_frontend() {
     //if (is_arch_supported_by_cudnn() == false) {

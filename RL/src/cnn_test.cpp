@@ -312,17 +312,22 @@ void test_dnn_linear() {
 
 
     network.Forward(xs);
+    network.Backward();
+    network.Step();
+    network.Forward(xs);
+    network.Backward();
+    network.Step();
 
     mse->FetchPredYToCpu();
     mse->PrintPredY();
 
 
-    network.Backward();
+    
     network.FetchGrad();
     network.PrintGrad();
 
 
-    network.Step();
+    
 
 
 
@@ -475,12 +480,12 @@ void test_cnn_tictac() {
 
         network.Backward();
 
-        float mseLoss = mse->FetchLoss();
-        float crossLoss = cross->FetchLoss();
-        float loss = mseLoss + crossLoss;
-        std::cout << "loss:" << loss << std::endl;
-        std::cout << "mseLoss:" << mseLoss << "\n";
-        std::cout << "crossLoss:" << crossLoss << std::endl;
+        Tensor mseLoss = mse->FetchLoss();
+        Tensor crossLoss = cross->FetchLoss();
+        Tensor loss = mseLoss + crossLoss;
+        loss.print_torch_style("loss:");
+        mseLoss.print_torch_style("mseLoss:");
+        crossLoss.print_torch_style("crossLoss:");
         std::cout << std::endl;
 
         network.Step();
