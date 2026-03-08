@@ -11,11 +11,14 @@
         } \
     } while (0)
 
-cudaError_t CudaInit();
+namespace zeta {
 
-void CudaGetDeviceProps();
+    cudaError_t CudaInit();
 
-cudaError_t CudaGetLastError();
+    void CudaGetDeviceProps();
 
-cudaError_t CudaDeviceSynchronize();
+    cudaError_t CudaGetLastError();
 
+    cudaError_t CudaDeviceSynchronize();
+
+}

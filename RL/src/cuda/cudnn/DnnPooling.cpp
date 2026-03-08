@@ -6,82 +6,84 @@
 #include "cu_tool.h"
 #include "DnnTensor.h"
 
-DnnPooling::DnnPooling() {
-    DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
-   
-    DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
-        mode,
-        nanProg,
-        h,w,
-        0,0,
-        h,w));
-}
+namespace zeta {
+    DnnPooling::DnnPooling() {
+        DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
 
-DnnPooling::DnnPooling(int H, int W)
-    :MaxPool2d(H,W)
-{
-    init(h, w);
-}
+        DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
+            mode,
+            nanProg,
+            h, w,
+            0, 0,
+            h, w));
+    }
 
-DnnPooling::~DnnPooling() {
-    DNN_CHECK(cudnnDestroyPoolingDescriptor(PDesc));
-}
+    DnnPooling::DnnPooling(int H, int W)
+        :MaxPool2d(H, W)
+    {
+        init(h, w);
+    }
 
-void DnnPooling::forward() {
+    DnnPooling::~DnnPooling() {
+        DNN_CHECK(cudnnDestroyPoolingDescriptor(PDesc));
+    }
 
-    float alpha = 1.0f;
-    float beta = 0.0f;
-    
-    DNN_CHECK(cudnnPoolingForward(dnn->handle_,
-        PDesc,
-        &alpha,
-        input->desc->cudnnDesc,
-        input->v,
-        &beta,
-        output->desc->cudnnDesc,
-        output->v
-    ));
-}
+    void DnnPooling::forward() {
 
-void DnnPooling::backwardEx() {
-    add = false;
-    float alpha = 1.0f;
-    float beta = 0.0f;
-    DNN_CHECK(cudnnPoolingBackward(dnn->handle_,
-        PDesc,
-        &alpha,
-        output->desc->cudnnDesc,
-        output->v,
-        output->desc->cudnnDesc,
-        output->delta,
-        input->desc->cudnnDesc,
-        input->v,
-        &beta,
-        input->desc->cudnnDesc,
-        input->delta));
-}
+        float alpha = 1.0f;
+        float beta = 0.0f;
 
-void DnnPooling::BindWorkspace(void* ptr) {
-    MaxPool2d::BindWorkspace(ptr);
-    output->Create();
-}
+        DNN_CHECK(cudnnPoolingForward(dnn->handle_,
+            PDesc,
+            &alpha,
+            input->desc->cudnnDesc,
+            input->v,
+            &beta,
+            output->desc->cudnnDesc,
+            output->v
+        ));
+    }
 
-void DnnPooling::SetNN(CuNN* nn) {
-    this->nn = nn;
-    this->dnn = dynamic_cast<DNN*>(nn);
-}
+    void DnnPooling::backwardEx() {
+        add = false;
+        float alpha = 1.0f;
+        float beta = 0.0f;
+        DNN_CHECK(cudnnPoolingBackward(dnn->handle_,
+            PDesc,
+            &alpha,
+            output->desc->cudnnDesc,
+            output->v,
+            output->desc->cudnnDesc,
+            output->delta,
+            input->desc->cudnnDesc,
+            input->v,
+            &beta,
+            input->desc->cudnnDesc,
+            input->delta));
+    }
 
-CuLayer* DnnPooling::Clone() const {
-    DnnPooling* pooling = new DnnPooling(this->h,this->w);
-    return pooling;
-}
+    void DnnPooling::BindWorkspace(void* ptr) {
+        MaxPool2d::BindWorkspace(ptr);
+        output->Create();
+    }
 
-void DnnPooling::init(int h, int w) {
-    DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
-    DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
-        mode,
-        nanProg,
-        h, w,
-        0, 0,
-        h, w));
+    void DnnPooling::SetNN(CuNN* nn) {
+        this->nn = nn;
+        this->dnn = dynamic_cast<DNN*>(nn);
+    }
+
+    CuLayer* DnnPooling::Clone() const {
+        DnnPooling* pooling = new DnnPooling(this->h, this->w);
+        return pooling;
+    }
+
+    void DnnPooling::init(int h, int w) {
+        DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
+        DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
+            mode,
+            nanProg,
+            h, w,
+            0, 0,
+            h, w));
+    }
 }

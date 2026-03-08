@@ -1,24 +1,22 @@
 #pragma once
 #include <cassert>
-#include "fp16_dev.h"
-#include "fp16_emu.h"
+#include <cudnn_backend.h>
 
-// Generate uniform numbers [0,1)
-void initImage(float* image, int imageSize);
+namespace zeta {
+    // Generate uniform numbers [0,1)
+    void initImage(float* image, int imageSize);
 
-void initImage(half1* image, int imageSize);
-
-// Currently set to generate uniform integers [-2, 2] to avoid int8 overflow
-void initImage(int8_t* image, int imageSize);
+    // Currently set to generate uniform integers [-2, 2] to avoid int8 overflow
+    void initImage(int8_t* image, int imageSize);
 
 
-void initImagePadded(int8_t* image, int dimA[], int dimPadded[], int stridePadded[], cudnnDataType_t dataType);
+    void initImagePadded(int8_t* image, int dimA[], int dimPadded[], int stridePadded[], cudnnDataType_t dataType);
 
-int checkCudaError(cudaError_t code, const char* expr, const char* file, int line);
+    int checkCudaError(cudaError_t code, const char* expr, const char* file, int line);
 
-int checkCudnnError(cudnnStatus_t code, const char* expr, const char* file, int line);
+    int checkCudnnError(cudnnStatus_t code, const char* expr, const char* file, int line);
 
-void generateStrides(const int* dimA, int* strideA, int nbDims, cudnnTensorFormat_t filterFormat);
+    void generateStrides(const int* dimA, int* strideA, int nbDims, cudnnTensorFormat_t filterFormat);
 
 #define checkCudaErr(...)                                                        \
     do {                                                                         \
@@ -56,3 +54,4 @@ void generateStrides(const int* dimA, int* strideA, int nbDims, cudnnTensorForma
             exit(EXIT_FAILURE); \
         } \
     } while (0)
+}

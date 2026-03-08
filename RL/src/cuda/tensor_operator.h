@@ -2,6 +2,8 @@
 
 #include "tensor.h"
 
-int ToDevice(const Tensor& tensor, void** addr);
+namespace zeta {
+    int ToDevice(const Tensor& tensor, void** addr);
 
-void ToTensor(Tensor& tensor, void* addr);
+    void ToTensor(Tensor& tensor, void* addr);
+}

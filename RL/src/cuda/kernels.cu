@@ -5,6 +5,8 @@
 
 #define WARP_SIZE 32
 
+namespace zeta {
+
 // Warp-level reduction for max
 __inline__ __device__
 float warp_reduce_max(float val) {
@@ -1145,4 +1147,6 @@ __global__ void regular_kernel(
     }
     grad_w[i] += 2 * c * weights[i];
     return;
+}
+
 }

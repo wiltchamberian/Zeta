@@ -49,7 +49,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;CUDNN_FRONTEND_SKIP_JSON_LIB</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include;$(SolutionDir)src\cuda\cudnn</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include;$(SolutionDir)src\cuda\cudnn;$(SolutionDir)src\test;$(SolutionDir)src\cpu;$(SolutionDir)src\app</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
@@ -74,7 +74,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;CUDNN_FRONTEND_SKIP_JSON_LIB</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include;$(SolutionDir)src\cuda\cudnn</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)src\cuda;G:\NVIDIA\v12.4\include;$(SolutionDir)thirdparty\include;$(SolutionDir)src\cuda\cudnn;$(SolutionDir)src\test;$(SolutionDir)src\cpu;$(SolutionDir)src\app</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
@@ -95,7 +95,6 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="src\cuda\cudnn\DnnConv.cpp" />
     <CudaCompile Include="src\cuda\cudnn\DNN.cpp" />
     <CudaCompile Include="src\cuda\cudnn\DnnLinear.cu" />
@@ -108,37 +107,44 @@
     <CudaCompile Include="src\cuda\reluLayer.cu" />
     <CudaCompile Include="src\cuda\tanhLayer.cu" />
     <CudaCompile Include="src\cuda\tensor_operator.cpp" />
-    <CudaCompile Include="src\fp16_dev.cu" />
-    <CudaCompile Include="src\main.cpp" />
-    <CudaCompile Include="src\test.cu" />
+    <CudaCompile Include="src\test\test.cu" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Activation.cpp" />
-    <ClCompile Include="src\cnn_test.cpp" />
+    <ClCompile Include="src\app\Go.cpp" />
+    <ClCompile Include="src\app\LeNet.cpp" />
+    <ClCompile Include="src\app\mcts.cpp" />
+    <ClCompile Include="src\app\MctsAlgo.cpp" />
+    <ClCompile Include="src\app\mnist.cpp" />
+    <ClCompile Include="src\app\ThreeTac.cpp" />
+    <ClCompile Include="src\app\TicTac.cpp" />
+    <ClCompile Include="src\cpu\Activation.cpp" />
+    <ClCompile Include="src\cpu\binary.cpp" />
+    <ClCompile Include="src\cpu\Layer.cpp" />
+    <ClCompile Include="src\cpu\main.cpp" />
+    <ClCompile Include="src\cpu\NeuralNetwork.cpp" />
     <ClCompile Include="src\cuda\activationLayer.cpp" />
-    <ClCompile Include="src\cuda\cudnnBackend.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnHelp.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnAct.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnPooling.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnSoftmax.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnTensor.cpp" />
     <ClCompile Include="src\cuda\CuTensor.cpp" />
-    <ClCompile Include="src\fp16_emu.cpp" />
-    <ClCompile Include="src\Go.cpp" />
-    <ClCompile Include="src\Layer.cpp" />
-    <ClCompile Include="src\LeNet.cpp" />
-    <ClCompile Include="src\mcts.cpp" />
-    <ClCompile Include="src\MctsAlgo.cpp" />
-    <ClCompile Include="src\mnist.cpp" />
-    <ClCompile Include="src\NeuralNetwork.cpp" />
-    <ClCompile Include="src\tensor.cpp" />
-    <ClCompile Include="src\ThreeTac.cpp" />
-    <ClCompile Include="src\TicTac.cpp" />
+    <ClCompile Include="src\test\cnn_test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Activation.h" />
-    <ClInclude Include="src\binary.h" />
-    <ClInclude Include="src\cnn_test.h" />
+    <ClInclude Include="src\app\Go.h" />
+    <ClInclude Include="src\app\LeNet.h" />
+    <ClInclude Include="src\app\mcts.h" />
+    <ClInclude Include="src\app\MctsAlgo.h" />
+    <ClInclude Include="src\app\mnist.h" />
+    <ClInclude Include="src\app\ThreeTac.h" />
+    <ClInclude Include="src\app\TicTac.h" />
+    <ClInclude Include="src\cpu\Activation.h" />
+    <ClInclude Include="src\cpu\binary.h" />
+    <ClInclude Include="src\cpu\Layer.h" />
+    <ClInclude Include="src\cpu\matrix.h" />
+    <ClInclude Include="src\cpu\NeuralNetwork.h" />
+    <ClInclude Include="src\cpu\tensor.h" />
     <ClInclude Include="src\cuda\activationLayer.h" />
     <ClInclude Include="src\cuda\cudnn\DnnConv.h" />
     <ClInclude Include="src\cuda\cudnn\DNN.h" />
@@ -159,21 +165,8 @@
     <ClInclude Include="src\cuda\reluLayer.h" />
     <ClInclude Include="src\cuda\tanhLayer.h" />
     <ClInclude Include="src\cuda\tensor_operator.h" />
-    <ClInclude Include="src\Go.h" />
-    <ClInclude Include="src\Layer.h" />
-    <ClInclude Include="src\LeNet.h" />
-    <ClInclude Include="src\matrix.h" />
-    <ClInclude Include="src\mcts.h" />
-    <ClInclude Include="src\MctsAlgo.h" />
-    <ClInclude Include="src\mnist.h" />
-    <ClInclude Include="src\NeuralNetwork.h" />
-    <ClInclude Include="src\tensor.h" />
-    <ClInclude Include="src\test.h" />
-    <ClInclude Include="src\ThreeTac.h" />
-    <ClInclude Include="src\TicTac.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="cpp.hint" />
+    <ClInclude Include="src\test\cnn_test.h" />
+    <ClInclude Include="src\test\test.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

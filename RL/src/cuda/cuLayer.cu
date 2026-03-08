@@ -7,6 +7,8 @@
 #include "CuNN.h"
 #include "cudnn_backend.h"
 
+namespace zeta {
+
 float* CuLayer::GetActivation() {
     return output->v;
 }
@@ -33,12 +35,12 @@ CuLayer* CuLayer::Add(CuLayer* layer) {
     return layer;
 }
 
-/**********************CuLinearLeakyReluLayer*****************************/
-CuLinearLeakyReluLayer::CuLinearLeakyReluLayer() {
+/**********************Linear*****************************/
+Linear::Linear() {
     layerType = LayerType::Fully;
 }
 
-CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
+Linear::Linear(int input, int output)
     : in_dim(input)
     , out_dim(output)
 {
@@ -50,7 +52,7 @@ CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
     RandomParameters();
 }
 
-void CuLinearLeakyReluLayer::RandomParameters() {
+void Linear::RandomParameters() {
     //He/Kaiming
     std::default_random_engine generator;
     int fan_in = weights.shape[0];   //input neural network
@@ -63,7 +65,7 @@ void CuLinearLeakyReluLayer::RandomParameters() {
     }
 }
 
-void CuLinearLeakyReluLayer::forward() { /* kernel launch */
+void Linear::forward() { /* kernel launch */
     float* inputData = input->v;
     if (inputData == nullptr) {
         assert(false);
@@ -87,7 +89,7 @@ void CuLinearLeakyReluLayer::forward() { /* kernel launch */
     //cudaMemcpy(dd, dl.activation, out_dim * sizeof(float), cudaMemcpyDeviceToHost);
 }
 
-void CuLinearLeakyReluLayer::backwardEx() {
+void Linear::backwardEx() {
     add = false;
     dgrad();
     wgrad();
@@ -97,7 +99,7 @@ void CuLinearLeakyReluLayer::backwardEx() {
     }
 }
 
-void CuLinearLeakyReluLayer::applyGradient() {
+void Linear::applyGradient() {
     if (nn->optimizerType == SGD) {
         int CPQ = weights.numel() / weights.shape[0];
         int K = weights.shape[0];
@@ -120,7 +122,7 @@ void CuLinearLeakyReluLayer::applyGradient() {
     }
 }
 
-void CuLinearLeakyReluLayer::dgrad() {
+void Linear::dgrad() {
     if (prevs.empty()) {
         return;
     }
@@ -150,7 +152,7 @@ void CuLinearLeakyReluLayer::dgrad() {
     //cudaMemcpy(test, prevs[0]->GetDelta(), dim_delta_prev * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
-void CuLinearLeakyReluLayer::wgrad() {
+void Linear::wgrad() {
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     int N = input->shape.N;
     int dim_delta_prev = input->shape.Dim();
@@ -168,7 +170,7 @@ void CuLinearLeakyReluLayer::wgrad() {
 
 }
 
-void CuLinearLeakyReluLayer::bgrad() {
+void Linear::bgrad() {
     dim3 block(TILE_WIDTH, TILE_WIDTH);
     int dim_delta = output->shape.Dim();
     dim3 grid((dim_delta + block.x - 1) / block.x);
@@ -183,7 +185,7 @@ void CuLinearLeakyReluLayer::bgrad() {
     //cudaMemcpy(dd, dl.delta, dim_delta * sizeof(float) * 2, cudaMemcpyKind::cudaMemcpyDeviceToHost);
 }
 
-void CuLinearLeakyReluLayer::regular_grad()
+void Linear::regular_grad()
 {
     int total = weights.numel();
     dim3 block(TILE_WIDTH);
@@ -191,7 +193,7 @@ void CuLinearLeakyReluLayer::regular_grad()
     regular_kernel << <grid, block >> > (dl.weights, dl.grad_w, total, nn->c);
 }
 
-void CuLinearLeakyReluLayer::InferOutputShape(TensorShape networkInput) {
+void Linear::InferOutputShape(TensorShape networkInput) {
     TensorShape shape = prevs.empty() ? networkInput : prevs[0]->output->shape;
     TensorShape result;
     result.N = shape.N;
@@ -204,11 +206,11 @@ void CuLinearLeakyReluLayer::InferOutputShape(TensorShape networkInput) {
     return;
 }
 
-size_t CuLinearLeakyReluLayer::GetWorkspaceSize() {
+size_t Linear::GetWorkspaceSize() {
     return output->shape.NumElements() * 2 ;
 }
 
-size_t CuLinearLeakyReluLayer::GetDeviceSize() {
+size_t Linear::GetDeviceSize() {
     size_t total = 0;
     if (nn->optimizerType == SGD) {
         size_t w = weights.numel();
@@ -228,13 +230,13 @@ size_t CuLinearLeakyReluLayer::GetDeviceSize() {
     return total;
 }
 
-void CuLinearLeakyReluLayer::BindWorkspace(void* ptr) {
+void Linear::BindWorkspace(void* ptr) {
     float* d = reinterpret_cast<float*>(ptr);
     output->v = d;
     output->delta = d + output->shape.NumElements();
 }
 
-void CuLinearLeakyReluLayer::BindDevice(void* ptr) {
+void Linear::BindDevice(void* ptr) {
     char* addr = reinterpret_cast<char*>(ptr);
 
     // -------- weights --------
@@ -296,21 +298,21 @@ void CuLinearLeakyReluLayer::BindDevice(void* ptr) {
     }
 }
 
-float* CuLinearLeakyReluLayer::GetDelta() {
+float* Linear::GetDelta() {
     return output->delta;
 }
 
-size_t CuLinearLeakyReluLayer::GetDeltaSize() {
+size_t Linear::GetDeltaSize() {
     //return dl.b_size;
     return output->shape.NumElements();
 }
 
-float* CuLinearLeakyReluLayer::GetPrevActivation() {
+float* Linear::GetPrevActivation() {
     return input->v;
 }
 
-CuLayer* CuLinearLeakyReluLayer::Clone() const {
-    CuLinearLeakyReluLayer* abc = new CuLinearLeakyReluLayer();
+CuLayer* Linear::Clone() const {
+    Linear* abc = new Linear();
     abc->in_dim = this->in_dim;
     abc->out_dim = this->out_dim;
     abc->weights = this->weights.Clone();
@@ -320,7 +322,7 @@ CuLayer* CuLinearLeakyReluLayer::Clone() const {
     return abc;
 }
 
-void CuLinearLeakyReluLayer::Print() {
+void Linear::Print() {
 
     std::cout << "weights:\n";
     weights.print("W_");
@@ -329,39 +331,39 @@ void CuLinearLeakyReluLayer::Print() {
     std::cout << std::endl;
 }
 
-void CuLinearLeakyReluLayer::PrintGrad() {
-    std::cout << "CuLinearLeakyReluLayer:\n";
+void Linear::PrintGrad() {
+    std::cout << "Linear:\n";
     std::cout << "weights_grad:\n";
     weights_grad.print_torch_style();
     std::cout << "bias_grad:\n";
     bias_grad.print_torch_style();
 }
 
-void CuLinearLeakyReluLayer::FetchResultToCpu() {
+void Linear::FetchResultToCpu() {
     weights.zeros(dl.b_size, dl.in_dim);
     b.zeros(dl.b_size);
     CU_CHECK(cudaMemcpy(weights.data(), dl.weights, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     CU_CHECK(cudaMemcpy(b.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
-void CuLinearLeakyReluLayer::FetchGradToCpu() {
+void Linear::FetchGradToCpu() {
     weights_grad.zeros(dl.b_size, dl.in_dim);
     bias_grad.zeros(dl.b_size);
     CU_CHECK(cudaMemcpy(weights_grad.data(), dl.grad_w, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     CU_CHECK(cudaMemcpy(bias_grad.data(), dl.grad_b, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
-void CuLinearLeakyReluLayer::FetchActivationToCpu() {
+void Linear::FetchActivationToCpu() {
     ac.zeros(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
     CU_CHECK(cudaMemcpy( ac.data(), output->v, output->shape.NumElements()*sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 }
 
-void CuLinearLeakyReluLayer::PrintActivation() {
+void Linear::PrintActivation() {
     FetchActivationToCpu();
     ac.print_torch_style("linear:");
 }
 
-void CuLinearLeakyReluLayer::PrintDelta() {
+void Linear::PrintDelta() {
     if (output->shape.H == 1 && output->shape.W == 1) {
         Tensor delta(output->shape.N, output->shape.C);
         cudaMemcpy(delta.data(), output->delta, output->shape.NumElements() * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
@@ -375,19 +377,19 @@ void CuLinearLeakyReluLayer::PrintDelta() {
     
 }
 
-void CuLinearLeakyReluLayer::PrintBGrad() {
+void Linear::PrintBGrad() {
     Tensor delta(out_dim);
     cudaMemcpy(delta.data(), dl.grad_b, out_dim * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     delta.print_torch_style("dBias:");
 }
 
-void CuLinearLeakyReluLayer::PrintWGrad() {
+void Linear::PrintWGrad() {
     Tensor delta(out_dim, in_dim);
     cudaMemcpy(delta.data(), dl.grad_w, out_dim * in_dim * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost);
     delta.print_torch_style("dW:");
 }
 
-void CuLinearLeakyReluLayer::Save(std::fstream fs) {
+void Linear::Save(std::fstream fs) {
     FetchResultToCpu();
 
 }
@@ -1237,4 +1239,5 @@ void CuLayer::test_cudnn_frontend() {
     //    {A, A_gpu.devPtr}, {B, B_gpu.devPtr}, {C, C_gpu.devPtr} };
     //REQUIRE(graph.execute(handle, variant_pack, workspace.devPtr).is_good());
 
+}
 }

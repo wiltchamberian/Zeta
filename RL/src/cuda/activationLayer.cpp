@@ -3,93 +3,87 @@
 #include "cu_tool.h"
 #include <cuda_runtime.h>
 
-ActivationLayer::ActivationLayer() {
-    layerType = LayerType::Activation;
-}
+namespace zeta {
+    ActivationLayer::ActivationLayer() {
+        layerType = LayerType::Activation;
+    }
 
-ActivationLayer::ActivationLayer(LayerType lt) {
-    layerType = lt;
-}
+    ActivationLayer::ActivationLayer(LayerType lt) {
+        layerType = lt;
+    }
 
-void ActivationLayer::forward() {
+    void ActivationLayer::forward() {
 
-}
+    }
 
-void ActivationLayer::backwardEx() {
+    void ActivationLayer::backwardEx() {
 
-}
+    }
 
-void ActivationLayer::applyGradient() {
+    void ActivationLayer::applyGradient() {
 
-}
+    }
 
-void ActivationLayer::InferOutputShape(TensorShape networkInput) {
-    //if (!prevs.empty()) {
-    //    inputShape = prevs[0]->outputShape;
-    //    outputShape = inputShape;
-    //}
-    //else {
-    //    inputShape = networkInput;
-    //    outputShape = inputShape;
-    //}
-    output->shape = prevs.empty() ? networkInput : input->shape;
-}
+    void ActivationLayer::InferOutputShape(TensorShape networkInput) {
+        output->shape = prevs.empty() ? networkInput : input->shape;
+    }
 
-void ActivationLayer::BindWorkspace(void* ptr) {
-    float* p = reinterpret_cast<float*>(ptr);
-    output->v = p;
-    p += input->shape.NumElements();
-    output->delta = p;
-    return;
-}
+    void ActivationLayer::BindWorkspace(void* ptr) {
+        float* p = reinterpret_cast<float*>(ptr);
+        output->v = p;
+        p += input->shape.NumElements();
+        output->delta = p;
+        return;
+    }
 
 
-size_t ActivationLayer::GetWorkspaceSize() {
-    return input->shape.NumElements() * 2;
-}
+    size_t ActivationLayer::GetWorkspaceSize() {
+        return input->shape.NumElements() * 2;
+    }
 
-void ActivationLayer::BindDevice(void* ptr) {
-    return;
-}
+    void ActivationLayer::BindDevice(void* ptr) {
+        return;
+    }
 
-size_t ActivationLayer::GetDeviceSize() {
-    return 0;
-}
+    size_t ActivationLayer::GetDeviceSize() {
+        return 0;
+    }
 
-float* ActivationLayer::GetDelta() {
-    return output->delta;
-}
+    float* ActivationLayer::GetDelta() {
+        return output->delta;
+    }
 
-size_t ActivationLayer::GetDeltaSize() {
-    return input->shape.NumElements();
-}
+    size_t ActivationLayer::GetDeltaSize() {
+        return input->shape.NumElements();
+    }
 
-CuLayer* ActivationLayer::Clone() const {
-    auto res = new ActivationLayer();
-    res->layerType = layerType;
-    res->output = output->Clone();
-    res->alpha = this->alpha;
-    return res;
-}
+    CuLayer* ActivationLayer::Clone() const {
+        auto res = new ActivationLayer();
+        res->layerType = layerType;
+        res->output = output->Clone();
+        res->alpha = this->alpha;
+        return res;
+    }
 
-void ActivationLayer::FetchResultToCpu() {
+    void ActivationLayer::FetchResultToCpu() {
 
-}
+    }
 
-void ActivationLayer::FetchGradToCpu() {
+    void ActivationLayer::FetchGradToCpu() {
 
-}
+    }
 
-Tensor ActivationLayer::FetchActivationToCpu() {
-    int siz = output->shape.NumElements();
-    Tensor tensor(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
-    CU_CHECK(cudaMemcpy(tensor.data(), output->v, siz * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
-    return tensor;
-}
+    Tensor ActivationLayer::FetchActivationToCpu() {
+        int siz = output->shape.NumElements();
+        Tensor tensor(output->shape.N, output->shape.C, output->shape.H, output->shape.W);
+        CU_CHECK(cudaMemcpy(tensor.data(), output->v, siz * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+        return tensor;
+    }
 
-void ActivationLayer::Print() {
-}
+    void ActivationLayer::Print() {
+    }
 
-void ActivationLayer::PrintGrad() {
+    void ActivationLayer::PrintGrad() {
+    }
 }
 
