@@ -1,4 +1,5 @@
 # Zeta 🚀
+![Zeta](./data/zeta.png)
 
 **Zeta** is a deep learning framework created by *WiltChamberlain*, designed to help users understand how deep learning works while providing a lightweight and extensible platform for C++ developers.
 
