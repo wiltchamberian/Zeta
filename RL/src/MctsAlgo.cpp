@@ -277,7 +277,7 @@ namespace mcts{
         return chessCount;
     }
 
-    void Mcts::train() {
+    void Mcts::train_proxy() {
         int step = 0;
         int bufferCount = 0;
         while (true) {
@@ -315,13 +315,13 @@ namespace mcts{
         std::cout << "bufferCount:" << bufferCount << std::endl;
     }
 
-    void Mcts::run() {
+    void Mcts::train() {
         InitRandom();
 
         int localVersion = globalVersion.load();
         std::shared_ptr<Proxy> proxy = mctsProxy;
         std::thread th([this]() {
-            train();
+            train_proxy();
             });
 
         ReplayBuffer tmpBuffer;

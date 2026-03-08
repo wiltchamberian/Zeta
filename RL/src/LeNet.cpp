@@ -31,14 +31,14 @@ void LeNet::createDnnNetwork() {
     c1 = CreateDnnLayer<DnnConv>(10, 1, 5, 5);
     //c1->weights.constants(0.1f);
 
-    auto relu1 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    auto relu1 = CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
     maxpool = CreateDnnLayer<DnnPooling>(2, 2);
     c2 = CreateDnnLayer<DnnConv>(20, 10, 3, 3);
     //c2->weights.constants(0.1f);
 
-    auto relu2 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    auto relu2 = CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
     fc = CreateDnnLayer<DnnLinear>(20 * 10 * 10, 200);
-    auto relu3 = CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    auto relu3 = CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
     fc2 = CreateDnnLayer<DnnLinear>(200, 10);
     //fc->weights.constants(0.1f);
     //fc2->weights.constants(0.1f);

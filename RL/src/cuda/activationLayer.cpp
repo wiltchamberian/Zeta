@@ -66,8 +66,7 @@ size_t ActivationLayer::GetDeltaSize() {
 
 CuLayer* ActivationLayer::Clone() const {
     auto res = new ActivationLayer();
-    //res->inputShape = inputShape;
-    //res->outputShape = outputShape;
+    res->layerType = layerType;
     res->output = output->Clone();
     res->alpha = this->alpha;
     return res;

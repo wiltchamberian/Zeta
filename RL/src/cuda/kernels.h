@@ -4,7 +4,7 @@
 
 #include "device_launch_parameters.h"
 
-#define TILE_WIDTH 16
+#define TILE_WIDTH 32
 #define TILE_SMALL 8
 
 __global__ void tanh_forward_kernel(
@@ -144,7 +144,40 @@ __global__ void compute_grad_b_kernel(
     int dim_delta
 );
 
-__global__ void apply_gradien_kernel(
+//c  = alpha * a + beta * b
+__global__ void matrix_add_kernel(
+    const float* a,
+    const float* b,
+    float* c,
+    float alpha,
+    float beta,
+    int total
+);
+
+//adam ubiased second raw moment
+__global__ void adam_second_moment_kernel(
+    const float* v_old,
+    const float* g,
+    const float beta2,
+    float* v,
+    int total
+);
+
+__global__ void adam_gradient_kernel(
+    const float* g,
+    float* m,
+    float* v,
+    const float alpha,
+    const float beta1,
+    const float beta2,
+    const float beta1_t,
+    const float beta2_t,
+    const float epsilon,
+    float* theta,
+    int total
+);
+
+__global__ void apply_gradient_kernel(
     const float* grad_w, // dim_y x dim_x
     const float* grad_b, // dim_y
     float* w,

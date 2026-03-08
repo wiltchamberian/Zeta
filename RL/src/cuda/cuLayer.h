@@ -23,6 +23,12 @@ struct DeviceLayer {
     int in_dim = 0;
     int b_size = 0;
 
+    //only use for Adam
+    float* w_m = nullptr;
+    float* w_v = nullptr;
+    float* b_m = nullptr;
+    float* b_v = nullptr;
+
     DeviceLayer PesudoClone() const {
         DeviceLayer res;
         res.w_size = this->w_size;
@@ -78,16 +84,20 @@ public:
     virtual void PrintGrad() {}
     virtual void Save(std::fstream fs) {}
     virtual float GetAlpha() { return 1;  }
+    virtual void SetNN(CuNN* nn) { this->nn = nn; }
 
+    void SetName(const std::string& name) { this->name = name; }
     CuLayer* AddLayer(CuLayer* layer);
+    CuLayer* Add(CuLayer* layer);
     bool IsRoot() const {
         return prevs.empty();
     }
     bool IsTail() const {
         return nexts.empty();
     }
-    //used for backward, flag whether this is the first visit in one backward
-    //if it is the first visit, add== false, else make it true
+    //In backward, according to whether this is the first visit in one backward
+    //set it to false or true.
+    //it is used for clear gradient in each iteration
     bool add = false;
     //TensorShape inputShape;
     //TensorShape outputShape;
@@ -110,6 +120,8 @@ public:
 
     //a hack, only used for clone but dont copy it while cloning
     CuLayer* ref = nullptr;
+    //name
+    std::string name;
 
     void test_cudnn_frontend();
 };
@@ -246,7 +258,7 @@ public:
     size_t GetWorkspaceSize();
     void BindDevice(void* ptr);
     size_t GetDeviceSize();
-    CuLayer* Clone() const;
+    virtual CuLayer* Clone() const override;
 
     void InferOutputShape(TensorShape networkInput);
 
@@ -272,7 +284,7 @@ public:
     CuMseLayer(int C);
     CuMseLayer(int C, int H);
     CuMseLayer(int C, int H, int W);
-    float FetchLoss();
+    Tensor FetchLoss();
     void forward();
     void backwardEx();
     void applyGradient();
@@ -310,7 +322,7 @@ public:
     void BindDevice(void* ptr);
     size_t GetDeviceSize();
     void forward();
-    CuLayer* Clone() const;
+    virtual CuLayer* Clone() const override;
     void backward(const float* delta_next, const float* w_next);
     void dgrad();
     void backwardEx();
@@ -339,7 +351,7 @@ public:
     Tensor& data() {
         return weights;
     }
-
+    TensorShape weightsShape;
     Tensor weights;
     Tensor b;
 

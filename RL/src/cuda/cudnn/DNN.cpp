@@ -47,8 +47,41 @@ void DNN::Connect(CuLayer* l1, CuLayer* l2) {
         l2->input = tensor;
     }
     else {
-        ;
+        l2->input = l1->output;
     }
     return;
 
+}
+
+CuNN* DNN::Clone() const {
+    DNN* nn = new DNN();
+    nn->c = this->c;
+    for (int i = 0; i < tensors.size(); ++i) {
+        CuTensor* tensor = tensors[i]->Clone();
+        tensors[i]->ref = tensor;
+        nn->tensors.push_back(std::unique_ptr<CuTensor>(tensor));
+    }
+    for (int i = 0; i < layers.size(); ++i) {
+        CuLayer* newLayer = layers[i]->Clone();
+        newLayer->SetNN(nn);
+        layers[i]->ref = newLayer;
+        nn->layers.push_back(std::unique_ptr<CuLayer>(newLayer));
+    }
+    for (int i = 0; i < layers.size(); ++i) {
+        for (auto& l : layers[i]->prevs) {
+            layers[i]->ref->prevs.push_back(l->ref);
+        }
+        for (auto& l : layers[i]->nexts) {
+            layers[i]->ref->nexts.push_back(l->ref);
+        }
+        if (layers[i]->input) {
+            layers[i]->ref->input = layers[i]->input->ref;
+        }
+        if (layers[i]->output) {
+            layers[i]->ref->output = layers[i]->output->ref;
+        }
+        //layers[i]->ref = nullptr;
+    }
+    nn->CopyAndBindDeviceMemory(deviceMemory, deviceMemorySize);
+    return nn;
 }

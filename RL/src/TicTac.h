@@ -159,6 +159,7 @@ public:
         }
         player = stream.read<int>();
         value = stream.read<int>();
+        value = (player == 1) ? value : (-value);
     }
 
     static void WriteBinary(std::vector<TicTac>& tictacs, BinaryStream& stream) {
@@ -190,13 +191,15 @@ public:
 
 class TicTacProxy : public mcts::Proxy {
 public:
-    std::unique_ptr<CuNN> nn = nullptr;
+    std::shared_ptr<CuNN> nn = nullptr;
 
     virtual std::shared_ptr<mcts::State> createState();
     CuHead predict(const mcts::State* state);
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
+    void createNNnetwork(float learningRate, OptimizerType type);
     void train(const std::vector<mcts::Entry>& entries);
+    float train(const Tensor& states, const Tensor& actions, const Tensor& values);
     virtual Proxy* Clone() const override;
 
     CuLayer* root = nullptr;

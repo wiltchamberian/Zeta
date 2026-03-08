@@ -54,10 +54,13 @@ public:
     float* delta = nullptr; //dC/dv
     //MUST be called after InitShape
     virtual void Create() {}
-    CuTensor* Clone() const {
-        //TODO
-        return nullptr;
+    virtual CuTensor* Clone() const {
+        CuTensor* tensor = new CuTensor();
+        tensor->shape = shape;
+        return tensor;
     }
+
+    CuTensor* ref = nullptr;
 
     DnnTensorDescriptor* desc = nullptr;
     BlasDescriptor* blasDesc = nullptr;

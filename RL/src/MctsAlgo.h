@@ -338,9 +338,9 @@ namespace mcts {
         //一次完整对弈，每一步棋包含一次搜索
         int selfPlay(ReplayBuffer& buffer, std::shared_ptr<Proxy> proxy);
         //train_thread
-        void train();
+        void train_proxy();
         //一次训练
-        void run();
+        void train();
         //实战下棋
         std::shared_ptr<State> play(const std::shared_ptr<State>& state) const;
         //随机下棋

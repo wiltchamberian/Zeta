@@ -25,6 +25,7 @@ public:
     ~DnnTensor();
     void Create() override;
     void Destroy();
+    CuTensor* Clone() const override;
 
     static TensorShape getTensorShape(const Tensor& tensor);
 };

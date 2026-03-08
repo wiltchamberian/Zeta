@@ -20,13 +20,7 @@ DnnPooling::DnnPooling() {
 DnnPooling::DnnPooling(int H, int W)
     :MaxPool2d(H,W)
 {
-    DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
-    DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
-        mode,
-        nanProg,
-        h, w,
-        0, 0,
-        h, w));
+    init(h, w);
 }
 
 DnnPooling::~DnnPooling() {
@@ -50,7 +44,7 @@ void DnnPooling::forward() {
 }
 
 void DnnPooling::backwardEx() {
-    //MaxPool2d::backwardEx();
+    add = false;
     float alpha = 1.0f;
     float beta = 0.0f;
     DNN_CHECK(cudnnPoolingBackward(dnn->handle_,
@@ -70,4 +64,24 @@ void DnnPooling::backwardEx() {
 void DnnPooling::BindWorkspace(void* ptr) {
     MaxPool2d::BindWorkspace(ptr);
     output->Create();
+}
+
+void DnnPooling::SetNN(CuNN* nn) {
+    this->nn = nn;
+    this->dnn = dynamic_cast<DNN*>(nn);
+}
+
+CuLayer* DnnPooling::Clone() const {
+    DnnPooling* pooling = new DnnPooling(this->h,this->w);
+    return pooling;
+}
+
+void DnnPooling::init(int h, int w) {
+    DNN_CHECK(cudnnCreatePoolingDescriptor(&PDesc));
+    DNN_CHECK(cudnnSetPooling2dDescriptor(PDesc,
+        mode,
+        nanProg,
+        h, w,
+        0, 0,
+        h, w));
 }

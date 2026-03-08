@@ -9,18 +9,10 @@
 using Sample = std::vector<float>;
 
 
-//struct Weight {
-//    int offset;
-//    int w;
-//    int h;
-//};
-//
-//struct Bias {
-//    int offset;
-//    int l;
-//};
-
-
+enum OptimizerType {
+    SGD,
+    Adam,
+};
 
 struct CuNNWorkspace {
     void Clear() {
@@ -47,10 +39,19 @@ class CuNN
 {
 public:
     float learningRate = 1.0;
-
+    OptimizerType optimizerType = SGD;
+    float beta1 = 0.9;
+    float beta2 = 0.999f;
+    float beta1_t = 1.0f;
+    float beta2_t = 1.0f;
+    float epsilon = 1e-8;
+    int t = 0;
+    
     CuNN(float lr = 1.0);
 
     ~CuNN();
+
+    void ResetOptimizer();
 
     template<typename T, typename... Args>
     T* CreateLayer(Args&&... args)
@@ -68,6 +69,8 @@ public:
         T* res = static_cast<T*>(tensors.back().get());
         return res;
     }
+
+    void SetOptimizer(OptimizerType opt);
 
     virtual void InitInput(const Tensor& tensor);
 
@@ -124,7 +127,7 @@ public:
 
     void ErrorCheck() const;
 
-    CuNN* Clone() const;
+    virtual CuNN* Clone() const;
 
     void CleanRefs(); //use with clone
 

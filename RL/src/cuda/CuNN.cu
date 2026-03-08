@@ -22,6 +22,12 @@ CuNN::~CuNN() {
     ReleaseDeviceMemory();
 }
 
+void CuNN::ResetOptimizer() {
+    t = 0;
+    beta1_t = 1.0f;
+    beta2_t = 1.0f;
+}
+
 void CuNN::SetLabel(const Tensor& tensor) {
     label = tensor;
 }
@@ -33,6 +39,10 @@ TensorShape CuNN::Build(TensorShape shape) {
         });
     AllocDeviceMemory();
     return shape;
+}
+
+void CuNN::SetOptimizer(OptimizerType opt) {
+    optimizerType = opt;
 }
 
 void CuNN::InitInput(const Tensor& tensor) {
@@ -57,7 +67,7 @@ void CuNN::Connect(CuLayer* l1, CuLayer* l2) {
         l2->input = tensor;
     }
     else {
-        ;
+        l2->input = l1->output;
     }
     return ;
 }
@@ -317,6 +327,12 @@ void CuNN::Backward() {
 
 
 void CuNN::Step() {
+    t += 1;
+    beta1_t = beta1_t * beta1;
+    beta2_t = beta2_t * beta2;
+    const float eps = 1e-8f;
+    if (beta1_t < eps) beta1_t = eps;
+    if (beta2_t < eps) beta2_t = eps;
     Travel([](CuLayer* l)->bool {
         l->applyGradient();
         return false;
@@ -390,6 +406,11 @@ void CuNN::ErrorCheck() const {
 CuNN* CuNN::Clone() const {
     CuNN* nn = new CuNN();
     nn->c = this->c;
+    for (int i = 0; i < tensors.size(); ++i) {
+        CuTensor* tensor = tensors[i]->Clone();
+        tensors[i]->ref = tensor;
+        nn->tensors.push_back(std::unique_ptr<CuTensor>(tensor));
+    }
     for (int i = 0; i < layers.size(); ++i) {
         CuLayer* newLayer = layers[i]->Clone();
         newLayer->nn = nn;
@@ -402,6 +423,12 @@ CuNN* CuNN::Clone() const {
         }
         for (auto& l : layers[i]->nexts) {
             layers[i]->ref->nexts.push_back(l->ref);
+        }
+        if (layers[i]->input) {
+            layers[i]->ref->input = layers[i]->input->ref;
+        }
+        if (layers[i]->output) {
+            layers[i]->ref->output = layers[i]->output->ref;
         }
         //layers[i]->ref = nullptr;
     }

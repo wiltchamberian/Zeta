@@ -481,7 +481,57 @@ __global__ void compute_grad_b_kernel(
     grad_b[j] = sum;
 }
 
-__global__ void apply_gradien_kernel(
+//c  = alpha * a + beta * b
+__global__ void matrix_add_kernel(
+    const float* a,
+    const float* b,
+    float* c,
+    float alpha,
+    float beta,
+    int total
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= total) return;
+    c[i] = a[i] * alpha + b[i] * beta;
+    return;
+}
+
+__global__ void adam_second_moment_kernel(
+    const float* v_old,
+    const float* g,
+    const float beta2,
+    float* v,
+    int total
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= total) return;
+
+    v[i] = beta2 * v_old[i] + (1 - beta2) * g[i] * g[i];
+    return;
+}
+
+__global__ void adam_gradient_kernel(
+    const float* g,
+    float* m,
+    float* v,
+    const float alpha,
+    const float beta1,
+    const float beta2,
+    const float beta1_t,
+    const float beta2_t,
+    const float epsilon,
+    float* theta,
+    int total
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= total) return;
+    float grad = g[i];
+    m[i] = beta1 * m[i] + (1 - beta1) * grad;
+    v[i] = beta2 * v[i] + (1 - beta2) * grad * grad;
+    theta[i] = theta[i] - alpha * m[i] / (1 - beta1_t) / (sqrtf(v[i] / (1 - beta2_t)) + epsilon);
+}
+
+__global__ void apply_gradient_kernel(
     const float* grad_w, // K * CPQ
     const float* grad_b, // K
     float* w,

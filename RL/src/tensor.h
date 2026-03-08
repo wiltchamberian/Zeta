@@ -156,7 +156,9 @@ public:
     TensorT():offset(0) {} // 默认构造
     TensorT(const Shape& dims) : shape(dims) { initData(); }
     template<typename... Dims>
-    TensorT(Dims... dims) : shape{ static_cast<Index>(dims)... } { initData(); }
+    TensorT(Dims... dims) : shape{ static_cast<Index>(dims)... } { 
+        initData(); 
+    }
     // --------------------
     // 拷贝构造
     // --------------------

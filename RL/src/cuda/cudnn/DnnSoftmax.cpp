@@ -30,3 +30,13 @@ void DnnSoftmax::BindWorkspace(void* ptr) {
     CuSoftmaxCrossEntropyLayer::BindWorkspace(ptr);
     output->Create();
 }
+
+void DnnSoftmax::SetNN(CuNN* nn) {
+    this->nn = nn;
+    this->dnn = dynamic_cast<DNN*>(nn);
+}
+
+CuLayer* DnnSoftmax::Clone() const {
+    DnnSoftmax* a = new DnnSoftmax();
+    return a;
+}

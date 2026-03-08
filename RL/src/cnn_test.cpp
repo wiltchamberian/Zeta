@@ -180,12 +180,12 @@ void test_dnn_conv() {
             }
         }
     }
-    auto relu1 = network.CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    auto relu1 = network.CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
 
     auto maxpool = network.CreateDnnLayer<DnnPooling>(2, 2);
 
     auto c2 = network.CreateDnnLayer<DnnConv>(4, 8, 3, 3, Size2D{ 1,1 });
-    auto relu2 = network.CreateDnnLayer<DnnActLayer>(LayerType::Act_Relu);
+    auto relu2 = network.CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
 
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -288,7 +288,7 @@ void test_dnn_linear() {
     layer1->b(0) = 0.5f;
     layer1->b(1) = 0.6f;
 
-    auto act = network.CreateDnnLayer<DnnActLayer>(LayerType::Act_Sigmoid);
+    auto act = network.CreateDnnLayer<DnnAct>(LayerType::Act_Sigmoid);
 
     // µÚ¶þ²ã 2 -> 1
     DnnLinear* layer2 = network.CreateDnnLayer<DnnLinear>(2, 1);

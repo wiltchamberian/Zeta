@@ -10,40 +10,7 @@
 DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride)
     :Conv2d(K,C,R,S,padding,stride)
 {
-    DNN_CHECK(cudnnCreateFilterDescriptor(&cudnnFdesc));
-    DNN_CHECK(cudnnCreateConvolutionDescriptor(&cudnnConvDesc));
-    DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnBdesc));
-    DNN_CHECK(cudnnCreateActivationDescriptor(&cudnnAdesc));
-    
-    //initImage(weights.data(), dl.w_size);
-
-    int filterdimA_padded[4] = { K,C,R,S };
-    int strideA_padded[4];
-
-    int biasDimA[4] = { 1, K, 1, 1 };
-    int biasStrideA[4];
-    generateStrides(biasDimA, biasStrideA, 4, filterFormat);
-    
-    int padA[2] = { padH, padW };
-    int convStrideA[2] = { strideH, strideW };
-    int dilationA[2] = { 1, 1 };
-    //generateStrides(filterdimA_padded, strideA_padded, 4, filterFormat);
-
-    DNN_CHECK(cudnnSetConvolutionNdDescriptor(cudnnConvDesc, convDim, padA, convStrideA, dilationA, mode, CUDNN_DATA_FLOAT));
-    DNN_CHECK(cudnnSetFilterNdDescriptor(cudnnFdesc, dataType, filterFormat, convDim + 2, filterdimA_padded));
-    DNN_CHECK(cudnnSetTensorNdDescriptor(
-        cudnnBdesc,
-        dataType,
-        4,
-        biasDimA,
-        biasStrideA
-    ));
-    DNN_CHECK(cudnnSetActivationDescriptor(
-        cudnnAdesc,
-        CUDNN_ACTIVATION_IDENTITY,  // activation function
-        CUDNN_PROPAGATE_NAN,
-        0.0f                    //for Clipped ReLU or elu
-    ));
+    init(K, C, R, S);
 }
 
 DnnConv::~DnnConv() {
@@ -215,6 +182,67 @@ void DnnConv::bgrad() {
     }
 }
 
+CuLayer* DnnConv::Clone() const {
+    DnnConv* layer = new DnnConv();
+    layer->output = this->output->Clone();
+
+    layer->weights = this->weights.Clone();
+    layer->b = this->b.Clone();
+    layer->weights_grad = this->weights_grad.Clone();
+    layer->bias_grad = this->bias_grad.Clone();
+    layer->ac = this->ac.Clone();
+    layer->in_dim = this->in_dim;
+    layer->out_dim = this->out_dim;
+    layer->alpha = this->alpha;
+    layer->padH = this->padH;
+    layer->padW = this->padW;
+    layer->strideH = this->strideH;
+    layer->strideW = this->strideW;
+    layer->dl.w_size = this->dl.w_size;
+    layer->dl.b_size = this->dl.b_size;
+
+    layer->init(weightsShape.N, weightsShape.C, weightsShape.H, weightsShape.W);
+    return layer;
+}
+
+void DnnConv::init(int K,int C,int R,int S) {
+    DNN_CHECK(cudnnCreateFilterDescriptor(&cudnnFdesc));
+    DNN_CHECK(cudnnCreateConvolutionDescriptor(&cudnnConvDesc));
+    DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnBdesc));
+    DNN_CHECK(cudnnCreateActivationDescriptor(&cudnnAdesc));
+
+    //initImage(weights.data(), dl.w_size);
+
+    int filterdimA_padded[4] = { K,C,R,S };
+    int strideA_padded[4];
+
+    int biasDimA[4] = { 1, K, 1, 1 };
+    int biasStrideA[4];
+    generateStrides(biasDimA, biasStrideA, 4, filterFormat);
+
+    int padA[2] = { padH, padW };
+    int convStrideA[2] = { strideH, strideW };
+    int dilationA[2] = { 1, 1 };
+    //generateStrides(filterdimA_padded, strideA_padded, 4, filterFormat);
+
+    DNN_CHECK(cudnnSetConvolutionNdDescriptor(cudnnConvDesc, convDim, padA, convStrideA, dilationA, mode, CUDNN_DATA_FLOAT));
+    DNN_CHECK(cudnnSetFilterNdDescriptor(cudnnFdesc, dataType, filterFormat, convDim + 2, filterdimA_padded));
+    DNN_CHECK(cudnnSetTensorNdDescriptor(
+        cudnnBdesc,
+        dataType,
+        4,
+        biasDimA,
+        biasStrideA
+    ));
+    DNN_CHECK(cudnnSetActivationDescriptor(
+        cudnnAdesc,
+        CUDNN_ACTIVATION_IDENTITY,  // activation function
+        CUDNN_PROPAGATE_NAN,
+        0.0f                    //for Clipped ReLU or elu
+    ));
+
+}
+
 void DnnConv::workSpaceReAlloc(void** workSpace, size_t& workSpaceSize, size_t oldSize) {
     if (*workSpace != nullptr) {
         if (workSpaceSize <= oldSize) {
@@ -230,4 +258,9 @@ void DnnConv::workSpaceReAlloc(void** workSpace, size_t& workSpaceSize, size_t o
             CU_CHECK(cudaMalloc(workSpace, workSpaceSize));
         }
     }
+}
+
+void DnnConv::SetNN(CuNN* nn) {
+    this->nn = nn;
+    this->dnn = dynamic_cast<DNN*>(nn);
 }

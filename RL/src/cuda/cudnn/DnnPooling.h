@@ -15,7 +15,9 @@ public:
     void forward() override;
     void backwardEx() override;
     void BindWorkspace(void* ptr) override;
-
+    void SetNN(CuNN*) override;
+    CuLayer* Clone() const override;
+    void init(int h, int w);
     cudnnNanPropagation_t nanProg = CUDNN_PROPAGATE_NAN;
     cudnnPoolingMode_t mode = CUDNN_POOLING_MAX;
     cudnnPoolingDescriptor_t PDesc;

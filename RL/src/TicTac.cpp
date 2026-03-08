@@ -1,6 +1,7 @@
 ﻿#include "TicTac.h"
 #include "reluLayer.h"
 #include "tanhLayer.h"
+#include "DnnHead.h"
 #include <algorithm>
 #include <random>
 #include <queue>
@@ -400,6 +401,56 @@ void TicTacProxy::createNetwork(float learningRate) {
     nn->AllocDeviceMemory();
 }
 
+void TicTacProxy::createNNnetwork(float learningRate,OptimizerType optType) {
+    totalActionCount = 9;
+
+    auto dnn = std::make_shared<DNN>();
+    dnn->SetLearningRate(learningRate);
+    dnn->optimizerType = optType;
+    nn = dnn;
+
+    auto c1 = dnn->CreateDnnLayer<DnnConv>(16, 2, 3, 3, Size2D{ 1,1 });
+    c1->SetName("c1");
+    auto relu1 = dnn->CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
+    relu1->SetName("relu1");
+    auto c2 = dnn->CreateDnnLayer<DnnConv>(16, 16, 3, 3, Size2D{ 1,1 });
+    c2->SetName("c2");
+    auto relu2 = dnn->CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
+    relu2->SetName("relu2");
+    auto c3 = dnn->CreateDnnLayer<DnnConv>(1, 16, 1, 1);
+    c3->SetName("c3");
+    auto relu = dnn->CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
+    relu->SetName("relu");
+    auto fully1 = dnn->CreateDnnLayer<DnnLinear>(9, 9);
+    fully1->SetName("fully1");
+    auto cross = dnn->CreateDnnLayer<DnnSoftmax>();
+    cross->SetName("cross");
+    auto fully2 = dnn->CreateDnnLayer<DnnLinear>(9, 9);
+    fully2->SetName("fully2");
+    auto relu3 = dnn->CreateDnnLayer<DnnAct>(LayerType::Act_Relu);
+    relu3->SetName("relu3");
+    auto fully2_1 = dnn->CreateDnnLayer<DnnLinear>(9, 1);
+    fully2_1->SetName("fully2_1");
+    auto tanh = dnn->CreateDnnLayer<DnnAct>(LayerType::Act_Tanh);
+    tanh->SetName("tanh");
+    auto mse = dnn->CreateLayer<CuMseLayer>();
+    mse->SetName("mse");
+    auto tail = dnn->CreateLayer<CuAddLayer>();
+    tail->SetName("tail");
+
+    c1->Add(relu1)->Add(c2)->Add(relu2)->Add(c3)->Add(relu);
+    relu->Add(fully1);
+    relu->Add(fully2);
+    fully1->Add(cross)->Add(tail);
+    fully2->Add(relu3)->Add(fully2_1)->Add(tanh)->Add(mse)->Add(tail);
+
+    root = c1;
+    policyHead = cross;
+    valueHead = mse;
+
+    dnn->AllocDeviceMemory();
+}
+
 void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
     if (entries.empty()) {
         return;
@@ -431,6 +482,29 @@ void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
 
     nn->Backward();
     nn->Step();
+}
+
+float TicTacProxy::train(const Tensor & states, const Tensor & actions, const Tensor & values) {
+
+    policyHead->label = actions;
+    valueHead->label = values;
+
+    nn->Forward(states);
+
+    policyHead->BindLabelToDevice();
+    valueHead->BindLabelToDevice();
+
+    Tensor crossLoss = policyHead->FetchLoss();
+    Tensor mseLoss = valueHead->FetchLoss();
+    Tensor loss = crossLoss + mseLoss;
+
+    std::cout << "loss:" << loss(0) << "mse:" << mseLoss(0) << "cross:" << crossLoss(0);
+    std::cout << "lr:" << nn->learningRate << std::endl;
+
+    nn->Backward();
+    nn->Step();
+
+    return loss(0);
 }
 
 mcts::Proxy* TicTacProxy::Clone() const {

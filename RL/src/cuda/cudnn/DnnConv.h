@@ -8,15 +8,19 @@ class DNN;
 
 class DnnConv : public Conv2d {
 public:
+    DnnConv() {}
     DnnConv(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 });
     virtual ~DnnConv() override;
     void BindWorkspace(void* ptr) override;
     void forward() override;
     void backwardEx() override;
-
+    void SetNN(CuNN* nn) override;
     void dgrad();
     void wgrad();
     void bgrad();
+    CuLayer* Clone() const override;
+
+    void init(int K,int C, int R, int S);
 //protected:
     void workSpaceReAlloc(void** workSpace, size_t& siz, size_t oldSize);
     cudnnDataType_t dataType = CUDNN_DATA_FLOAT;

@@ -28,13 +28,18 @@ CuLayer* CuLayer::AddLayer(CuLayer* layer) {
     return layer;
 }
 
+CuLayer* CuLayer::Add(CuLayer* layer) {
+    nn->Connect(this, layer);
+    return layer;
+}
+
 /**********************CuLinearLeakyReluLayer*****************************/
 CuLinearLeakyReluLayer::CuLinearLeakyReluLayer() {
     layerType = LayerType::Fully;
 }
 
 CuLinearLeakyReluLayer::CuLinearLeakyReluLayer(int input, int output)
-    :in_dim(input)
+    : in_dim(input)
     , out_dim(output)
 {
     layerType = LayerType::Fully;
@@ -93,14 +98,26 @@ void CuLinearLeakyReluLayer::backwardEx() {
 }
 
 void CuLinearLeakyReluLayer::applyGradient() {
-    int CPQ = weights.numel() / weights.shape[0];
-    int K = weights.shape[0];
-    int block_y = (K + TILE_WIDTH - 1) / TILE_WIDTH;
-    int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
-    dim3 grid(block_x, block_y);
-    dim3 block(TILE_WIDTH, TILE_WIDTH);
-    apply_gradien_kernel << <grid, block >> > (dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
-
+    if (nn->optimizerType == SGD) {
+        int CPQ = weights.numel() / weights.shape[0];
+        int K = weights.shape[0];
+        int block_y = (K + TILE_WIDTH - 1) / TILE_WIDTH;
+        int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
+        dim3 grid(block_x, block_y);
+        dim3 block(TILE_WIDTH, TILE_WIDTH);
+        apply_gradient_kernel << <grid, block >> > (dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
+    }
+    else if (nn->optimizerType == Adam) {
+        int total = in_dim * out_dim;
+        dim3 block(TILE_WIDTH);
+        dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);
+        adam_gradient_kernel << <grid, block >> > (dl.grad_w, dl.w_m, dl.w_v, nn->learningRate,
+            nn->beta1, nn->beta2, nn->beta1_t, nn->beta2_t, nn->epsilon, dl.weights, total);
+        int biasCount = out_dim;
+        dim3 grid1((biasCount + TILE_WIDTH - 1) / TILE_WIDTH);
+        adam_gradient_kernel << <grid1, block >> > (dl.grad_b, dl.b_m, dl.b_v, nn->learningRate,
+            nn->beta1, nn->beta2, nn->beta1_t, nn->beta2_t, nn->epsilon, dl.bias, biasCount);
+    }
 }
 
 void CuLinearLeakyReluLayer::dgrad() {
@@ -193,12 +210,21 @@ size_t CuLinearLeakyReluLayer::GetWorkspaceSize() {
 
 size_t CuLinearLeakyReluLayer::GetDeviceSize() {
     size_t total = 0;
-    size_t w = weights.numel();
-    size_t b = this->b.numel();
-    total += w;  // weights
-    total += w;  // grad_w
-    total += b;  // bias
-    total += b;  // grad_b
+    if (nn->optimizerType == SGD) {
+        size_t w = weights.numel();
+        size_t b = this->b.numel();
+        total += w;  // weights
+        total += w;  // grad_w
+        total += b;  // bias
+        total += b;  // grad_b
+    }
+    else if (nn->optimizerType == Adam) {
+        size_t w = weights.numel();
+        size_t b = this->b.numel();
+        total += w * 4;  // weights
+        total += b * 4;
+    }
+
     return total;
 }
 
@@ -253,6 +279,21 @@ void CuLinearLeakyReluLayer::BindDevice(void* ptr) {
     // -------- grad_b --------
     dl.grad_b = reinterpret_cast<float*>(addr);
     addr += b_size * sizeof(float);
+
+    if (nn->optimizerType == SGD) {
+        ;
+    }
+    else if (nn->optimizerType == Adam) {
+        //CU_CHECK(cudaMemset(addr, 0, (w_size + b_size) * 2 * sizeof(float)));
+        dl.w_m = reinterpret_cast<float*>(addr);
+        addr += w_size * sizeof(float);
+        dl.b_m = reinterpret_cast<float*>(addr);
+        addr += b_size * sizeof(float);
+        dl.w_v = reinterpret_cast<float*>(addr);
+        addr += w_size * sizeof(float);
+        dl.b_v = reinterpret_cast<float*>(addr);
+        addr += b_size * sizeof(float);
+    }
 }
 
 float* CuLinearLeakyReluLayer::GetDelta() {
@@ -451,6 +492,7 @@ void CuSoftmaxCrossEntropyLayer::forward() {
 }
 
 void CuSoftmaxCrossEntropyLayer::backwardEx() {
+    add = false;
     assert(!prevs.empty());
     int M = input->shape.Dim();
     
@@ -568,7 +610,7 @@ CuMseLayer::CuMseLayer(int C, int R, int S)
     label = Tensor(C, R, S);
 }
 
-float CuMseLayer::FetchLoss() {
+Tensor CuMseLayer::FetchLoss() {
     assert(!prevs.empty());
     auto prev = prevs[0];
     float* a = prev->GetActivation();
@@ -577,8 +619,8 @@ float CuMseLayer::FetchLoss() {
     dim3 block(1024);
     dim3 grid(1);
     mse_loss_kernel << <grid, block >> > (a, y_label, loss, total);
-    float res = 0;
-    CU_CHECK(cudaMemcpy(&res, loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    Tensor res(1);
+    CU_CHECK(cudaMemcpy(res.data(), loss, sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     return res;
 }
 
@@ -703,6 +745,10 @@ Conv2d::Conv2d(int K, int C, int R, int S, Size2D padding, Size2D stride)
     dl.w_size = K * C * R * S;
     dl.b_size = K;
 
+    weightsShape.N = K;
+    weightsShape.C = C;
+    weightsShape.H = R;
+    weightsShape.W = S;
 
     RandomParameters();
 }
@@ -800,16 +846,39 @@ void Conv2d::BindDevice(void* ptr) {
     dl.grad_b = reinterpret_cast<float*>(addr);
     addr += b_size * sizeof(float);
     
+    if (nn->optimizerType == SGD) {
+
+    }
+    else if (nn->optimizerType == Adam) {
+        //CU_CHECK(cudaMemset(addr, 0, (w_size + b_size) * 2 * sizeof(float)));
+        dl.w_m = reinterpret_cast<float*>(addr);
+        addr += w_size * sizeof(float);
+        dl.b_m = reinterpret_cast<float*>(addr);
+        addr += b_size * sizeof(float);
+        dl.w_v = reinterpret_cast<float*>(addr);
+        addr += w_size * sizeof(float);
+        dl.b_v = reinterpret_cast<float*>(addr);
+        addr += b_size * sizeof(float);
+    }
 }
 
 size_t Conv2d::GetDeviceSize() {
     size_t total = 0;
-    size_t w = weights.numel();
-    size_t b = this->b.numel();
-    total += w;  // weights
-    total += w;  // grad_w
-    total += b;  // bias
-    total += b;  // grad_b
+    if (nn->optimizerType == SGD) {
+        size_t w = weights.numel();
+        size_t b = this->b.numel();
+        total += w;  // weights
+        total += w;  // grad_w
+        total += b;  // bias
+        total += b;  // grad_b
+    }
+    else if(nn->optimizerType == Adam){
+        size_t w = weights.numel();
+        size_t b = this->b.numel();
+        total += w * 4;  // weights
+        total += b * 4;
+    }
+    
     return total;
 }
 
@@ -914,15 +983,26 @@ void Conv2d::backwardEx() {
 }
 
 void Conv2d::applyGradient() {
-
-    int CPQ = weights.numel() / weights.shape[0];
-    int K = weights.shape[0];
-    int block_y = (K + TILE_WIDTH - 1) / TILE_WIDTH;
-    int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
-    dim3 grid(block_x, block_y);
-    dim3 block(TILE_WIDTH, TILE_WIDTH);
-    apply_gradien_kernel <<<grid, block>>>(dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
-
+    if (nn->optimizerType == SGD) {
+        int CPQ = weights.numel() / weights.shape[0];
+        int K = weights.shape[0];
+        int block_y = (K + TILE_WIDTH - 1) / TILE_WIDTH;
+        int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
+        dim3 grid(block_x, block_y);
+        dim3 block(TILE_WIDTH, TILE_WIDTH);
+        apply_gradient_kernel << <grid, block >> > (dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
+    }
+    else if (nn->optimizerType == Adam) {
+        int total = in_dim * out_dim;
+        dim3 block(TILE_WIDTH);
+        dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);
+        adam_gradient_kernel << <grid, block >> > (dl.grad_w, dl.w_m, dl.w_v, nn->learningRate,
+            nn->beta1, nn->beta2, nn->beta1_t, nn->beta2_t, nn->epsilon, dl.weights, total);
+        int biasCount = out_dim;
+        dim3 grid1((biasCount + TILE_WIDTH - 1) / TILE_WIDTH);
+        adam_gradient_kernel << <grid1, block >> > (dl.grad_b, dl.b_m, dl.b_v, nn->learningRate,
+            nn->beta1, nn->beta2, nn->beta1_t, nn->beta2_t, nn->epsilon, dl.bias, biasCount);
+    }
 }
 
 void Conv2d::dgrad() {

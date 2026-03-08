@@ -4,17 +4,17 @@
 #include "DNN.h"
 #include "DnnHelp.h"
 
-DnnActLayer::DnnActLayer()
+DnnAct::DnnAct()
 :ActivationLayer(){
     Init(LayerType::Act_Identity);
 }
 
-DnnActLayer::DnnActLayer(LayerType lt) 
+DnnAct::DnnAct(LayerType lt)
 :ActivationLayer(lt){
     Init(lt);
 }
 
-void DnnActLayer::Init(LayerType lt) {
+void DnnAct::Init(LayerType lt) {
     layerType = lt;
     DNN_CHECK(cudnnCreateTensorDescriptor(&xDesc));
     DNN_CHECK(cudnnCreateTensorDescriptor(&yDesc));
@@ -66,14 +66,14 @@ void DnnActLayer::Init(LayerType lt) {
     ));
 }
 
-DnnActLayer::~DnnActLayer() {
+DnnAct::~DnnAct() {
     DNN_CHECK(cudnnDestroyTensorDescriptor(xDesc));
     DNN_CHECK(cudnnDestroyTensorDescriptor(yDesc));
     DNN_CHECK(cudnnDestroyTensorDescriptor(dyDesc));
     DNN_CHECK(cudnnDestroyActivationDescriptor(actDesc));
 }
 
-void DnnActLayer::forward() {
+void DnnAct::forward() {
     float* x = input->v;
     if (x == nullptr) {
         assert(false);
@@ -93,13 +93,14 @@ void DnnActLayer::forward() {
     ));
 }
 
-void DnnActLayer::backwardEx() {
+void DnnAct::backwardEx() {
+    add = false;
     if (prevs.empty()) return;
     float* x = input->v;
     float* dx = input->delta;
 
     float alpha1 = 1;
-    float beta1 = 0;
+    float beta1 = prevs[0]->add ? 1 : 0;
     auto status = cudnnActivationBackward(dnn->handle_,
         actDesc,
         &alpha1,
@@ -113,12 +114,13 @@ void DnnActLayer::backwardEx() {
         xDesc,
         dx
     );
+    prevs[0]->add = true;
     if (status != CUDNN_STATUS_SUCCESS) {
         assert(false);
     }
 }
 
-void DnnActLayer::BindWorkspace(void* ptr) {
+void DnnAct::BindWorkspace(void* ptr) {
     ActivationLayer::BindWorkspace(ptr);
     output->Create();
 
@@ -135,4 +137,17 @@ void DnnActLayer::BindWorkspace(void* ptr) {
     generateStrides(dimB, strideB, 4, tensorFormat);
     cudnnSetTensorNdDescriptor(yDesc, dataType, 4, dimB, strideB);
     cudnnSetTensorNdDescriptor(dyDesc, dataType, 4, dimB, strideB);
+}
+
+void DnnAct::SetNN(CuNN* nn) {
+    this->nn = nn;
+    this->dnn = dynamic_cast<DNN*>(nn);
+}
+
+CuLayer* DnnAct::Clone() const {
+    auto res = new DnnAct(layerType);
+    res->layerType = layerType;
+    res->output = output->Clone();
+    res->alpha = this->alpha;
+    return res;
 }

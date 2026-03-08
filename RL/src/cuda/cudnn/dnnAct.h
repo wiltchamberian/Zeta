@@ -4,15 +4,17 @@
 
 class DNN;
 
-class DnnActLayer : public ActivationLayer {
+class DnnAct : public ActivationLayer {
 public:
-    DnnActLayer();
-    DnnActLayer(LayerType lt);
-    ~DnnActLayer();
+    DnnAct();
+    DnnAct(LayerType lt);
+    ~DnnAct();
     void Init(LayerType lt);
     void forward() override;
     void backwardEx() override;
     void BindWorkspace(void* ptr) override;
+    void SetNN(CuNN* nn) override;
+    CuLayer* Clone() const override;
     cudnnActivationDescriptor_t actDesc = nullptr;
     cudnnTensorDescriptor_t xDesc = nullptr;
     cudnnTensorDescriptor_t yDesc = nullptr;

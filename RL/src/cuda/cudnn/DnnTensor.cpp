@@ -90,6 +90,13 @@ void DnnTensor::Destroy() {
     }
 }
 
+CuTensor* DnnTensor::Clone() const {
+    DnnTensor* tensor = new DnnTensor();
+    tensor->InitShape(shape);
+    tensor->Create();
+    return tensor;
+}
+
 TensorShape DnnTensor::getTensorShape(const Tensor& x) {
     TensorShape ts;
     int rk = x.rank();

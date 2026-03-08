@@ -109,7 +109,7 @@
     <CudaCompile Include="src\cuda\tanhLayer.cu" />
     <CudaCompile Include="src\cuda\tensor_operator.cpp" />
     <CudaCompile Include="src\fp16_dev.cu" />
-    <CudaCompile Include="src\main.cu" />
+    <CudaCompile Include="src\main.cpp" />
     <CudaCompile Include="src\test.cu" />
   </ItemGroup>
   <ItemGroup>
@@ -142,6 +142,7 @@
     <ClInclude Include="src\cuda\activationLayer.h" />
     <ClInclude Include="src\cuda\cudnn\DnnConv.h" />
     <ClInclude Include="src\cuda\cudnn\DNN.h" />
+    <ClInclude Include="src\cuda\cudnn\DnnHead.h" />
     <ClInclude Include="src\cuda\cudnn\DnnHelp.h" />
     <ClInclude Include="src\cuda\cudnn\DnnAct.h" />
     <ClInclude Include="src\cuda\cudnn\DnnLinear.h" />

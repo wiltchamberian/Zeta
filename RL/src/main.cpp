@@ -59,18 +59,72 @@ int main()
     //test_dnn_conv();
     //test_cnn_tictac();
     //test_blaslt();
-    mnist_test();
+    //mnist_test();
 
     BinaryStream bs;
     bs.loadFromFile("tictacs.bin");
     std::vector<TicTac> res = TicTac::ReadBinary(bs);
+    std::unordered_map<uint64_t, int> valuesMap;
     for (int i = 0; i < res.size(); ++i) {
-        res[i].printState();
+        //res[i].printState();
+        valuesMap[res[i].Hash()] = res[i].value;
+    }
+    
+
+    //construct optimal policy
+    std::vector<Tensor> acts(res.size());
+    for (int i = 0; i < res.size(); ++i) {
+        acts[i] = Tensor(9);
+        auto actions = res[i].legalActions();
+        //must lose, so random choose
+        if (res[i].value == -1) {
+            for (int j = 0; j < actions.size(); ++j) {
+                acts[i](actions[j]) = 1.0 / actions.size();
+            }
+        }
+        else {
+            std::vector<int> values(actions.size(), 0);
+            for (int j = 0; j < actions.size(); ++j) {
+                auto st = res[i].NextState(actions[j]);
+                values[j] = valuesMap[st.Hash()];
+            }
+            //choose the smallest value
+            int min = 1;
+            for (int j = 0; j < values.size(); ++j) {
+                min = std::min<int>(values[j], min);
+            }
+            //find number equal to smalles
+            int count = 0;
+            for (int j = 0; j < values.size(); ++j) {
+                if (values[j] == min) {
+                    count += 1;
+                }
+            }
+            //assign probability
+            for (int j = 0; j < actions.size(); ++j) {
+                if (values[j] == min) {
+                    acts[i](actions[j]) = 1.0 / count;
+                }
+            }
+        }
+    }
+    int batchSize = res.size();
+    std::vector<Tensor> trainData(res.size()/batchSize);
+    std::vector<Tensor> ys(res.size() / batchSize);
+    std::vector<Tensor> vs(res.size() / batchSize);
+    for (int i = 0; i < trainData.size(); ++i) {
+        trainData[i] = Tensor(batchSize, 2, 3, 3);
+        ys[i] = Tensor(batchSize, 9);
+        vs[i] = Tensor(batchSize);
+        for (int j = 0; j < batchSize; ++j) {
+            trainData[i][j].copy(res[i * batchSize + j].Encode());
+            ys[i][j].copy(acts[i * batchSize + j]);
+            vs[i](j) = res[i * batchSize + j].value;
+        }
     }
 
     
-
-
+   
     mcts::Setting setting;
     setting.simulationCount = 100;
     setting.batchSize = 128;
@@ -85,24 +139,57 @@ int main()
     setting.targetTemperature = 0.1;
     setting.explorationCount = 5; // minus means not use
 
-    std::shared_ptr<ThreeTacProxy> proxy = std::make_shared<ThreeTacProxy>();
-    proxy->createNetwork(0.01);
-    proxy->nn->c = 0.0001;
+    std::shared_ptr<TicTacProxy> proxy = std::make_shared<TicTacProxy>();
+    proxy->createNNnetwork(0.01f, SGD);
+    //proxy->nn->c = 0.0001;
+
+    //we use supervised learning here
+    int epoch = 20000;
+    float lr_min = 0.001f;
+    float lr_max = 0.1f;
+    float k = 20.0f;
+    float loss = 0;
+    float loss_prev = 0;
+    for (int i = 0; i < epoch; ++i) {
+        for (int j = 0; j < trainData.size(); ++j) {
+           loss = proxy->train(trainData[j], ys[j], vs[j]);
+        }
+        float ab = abs(loss - loss_prev);
+        float lr = lr_min + (lr_max - lr_min) * expf(-k * ab);
+        loss_prev = loss;
+        //float lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(3.141592653589 * i / (epoch)));
+        if (i < 10000) {
+            proxy->setLearningRate(0.1);
+        }
+        else {
+            proxy->setLearningRate(0.02);
+        }
+        
+    }
+
+
+    //epoch = 10000;
+    //for (int i = 0; i < epoch; ++i) {
+    //    proxy->train(trainData[0], ys[0], vs[0]);
+    //}
 
     setting.dirichletNoise = 10.0f / proxy->totalActionCount;
 
     mcts::Mcts mcts;
-    mcts.mctsProxy = proxy;
-    mcts.trainProxy = proxy->Clone();
     mcts.setting = setting;
-    mcts.run();
+
+
+    mcts.mctsProxy = proxy;
+
+    //mcts.trainProxy = proxy->Clone();
+    //mcts.train();
 
     //save
 
     int d[64];
     bool human = true;
     
-    std::shared_ptr<mcts::State> state = std::make_shared<ThreeTacState>();
+    std::shared_ptr<mcts::State> state = std::make_shared<TicTac>();
     state->Init();
     std::cout << "human first? (1:human 0:AI)\n";
     std::cin >> d[0];

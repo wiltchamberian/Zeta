@@ -9,12 +9,17 @@ class DNN;
 
 class DnnLinear : public CuLinearLeakyReluLayer {
 public:
+    DnnLinear() {}
     DnnLinear(int dimIn, int dimOut);
     ~DnnLinear();
     void forward() override;
     void backwardEx() override;
+    void dgrad();
+    void wgrad();
+    void bgrad();
     void BindWorkspace(void* ptr) override;
-    
+    void SetNN(CuNN* nn) override;
+    CuLayer* Clone() const override;
     void init();
     void selectAlgo(cublasLtMatmulDesc_t opDesc,
         cublasLtMatrixLayout_t A,

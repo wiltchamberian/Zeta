@@ -92,6 +92,16 @@ void DnnLinear::forward() {
 void DnnLinear::backwardEx() {
     add = false;
 
+    dgrad();
+    wgrad();
+    bgrad();
+    
+    if (nn->c != 0) {
+        regular_grad();
+    }
+}
+
+void DnnLinear::dgrad() {
     float alpha = 1.0f;
     float beta = 0.0f;
 
@@ -101,6 +111,7 @@ void DnnLinear::backwardEx() {
         [B,out] * [out,in] = [B,in]
     */
     if (!prevs.empty()) {
+        beta = prevs[0]->add ? 1.0f : 0.0f;
         cublasStatus_t status = cublasLtMatmul(
             dnn->ltHandle,
             opDesc_delta,
@@ -120,15 +131,16 @@ void DnnLinear::backwardEx() {
         }
         prevs[0]->add = true;
     }
-    
+}
 
-
+void DnnLinear::wgrad() {
     /*
         2️⃣ dW = dY^T * X
 
         [out,B] * [B,in] = [out,in]
     */
-
+    float alpha = 1.0f;
+    float beta = 0.0f;
     auto status = cublasLtMatmul(
         dnn->ltHandle,
         opDesc_dw,
@@ -146,12 +158,10 @@ void DnnLinear::backwardEx() {
     if (status != CUBLAS_STATUS_SUCCESS) {
         assert(false);
     }
-    
+}
+
+void DnnLinear::bgrad() {
     CuLinearLeakyReluLayer::bgrad();
-    
-    if (nn->c != 0) {
-        regular_grad();
-    }
 }
 
 void DnnLinear::BindWorkspace(void* ptr) {
@@ -247,4 +257,27 @@ cublasLtMatmulDesc_t DnnLinear::createAndSetDesc(cublasOperation_t transA, cubla
         &transB,
         sizeof(transB)));
     return desc;
+}
+
+void DnnLinear::SetNN(CuNN* nn) {
+    this->nn = nn;
+    this->dnn = dynamic_cast<DNN*>(nn);
+}
+
+CuLayer* DnnLinear::Clone() const {
+    DnnLinear* abc = new DnnLinear();
+    abc->layerType = this->layerType;
+    abc->in_dim = this->in_dim;
+    abc->out_dim = this->out_dim;
+    abc->weights = this->weights.Clone();
+    abc->b = this->b.Clone();
+
+    abc->alpha = this->alpha;
+    abc->transX = transX;
+    abc->transW = transW;
+    abc->order = order;
+
+    abc->init();
+
+    return abc;
 }
