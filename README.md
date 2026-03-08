@@ -20,6 +20,7 @@ Currently, **Zeta** supports:
 - GPU neural networks (DNN) leveraging cuDNN and cuBLAS 🧠  
 - A DAG system for automatic differentiation in backward 🔗  
 - Monte Carlo Tree Search (MCTS) simulation system 🎲  
+- An alpha-beta pruning algorithm for tic-tac 
 - MNIST dataset examples ✏️  
 - Tic-Tac-Toe ❌⭕ and small-board Go 🏯 implementations for testing framework capabilities
 
