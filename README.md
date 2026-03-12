@@ -41,3 +41,80 @@ On the MNIST dataset (60,000 samples), **Zeta** achieves:
 This demonstrates that **Zeta** is not only lightweight and extensible but also highly efficient for practical machine learning tasks 💡.
 
 ![mnist](./data/performance.jpg)
+
+# Demo
+In the test folder, there are some demos for using it, here is an example:
+```
+void test_dnn_linear() {
+
+    //Create a neural network using cuda cudnn library 
+    DNN network;
+    //Set the learning rate, this can optimized to a single class optimizer in the future
+    network.SetLearningRate(0.1);
+
+    //create a linear layer (make sure to you CreateDnnLayer instead of CreateLayer if you are using DNN network, input dim :2 ,outut dim :2
+    DnnLinear* layer1 = network.CreateDnnLayer<DnnLinear>(2, 2);
+    //set the weights and bias
+    layer1->weights(0, 0) = 0.1f;
+    layer1->weights(0, 1) = 0.2f;
+    layer1->weights(1, 0) = 0.3f;
+    layer1->weights(1, 1) = 0.4f;
+    layer1->b(0) = 0.5f;
+    layer1->b(1) = 0.6f;
+    //create a sigmoid layer
+    auto act = network.CreateDnnLayer<DnnAct>(LayerType::Act_Sigmoid);
+
+    //create another linear layer  input dim :2 ,outut dim :1
+    DnnLinear* layer2 = network.CreateDnnLayer<DnnLinear>(2, 1);
+    layer2->weights(0, 0) = 0.7f;
+    layer2->weights(0, 1) = 0.8f;
+    layer2->b(0) = 0.9f;
+
+    //create a mse loss layer.
+    CuMseLayer* mse = network.CreateLayer<CuMseLayer>();
+    //set the label value for mse 
+    mse->label = Tensor(1);
+    mse->label(0) = 1.0;
+
+    //make sure you create a outputlayer as the last layer, otherwise it may cause runtime issue
+    OutputLayer* output = network.CreateLayer<OutputLayer>();
+
+    //connect the layers with intuitive grammaer 
+    layer1->AddLayer(act)->AddLayer(layer2)->AddLayer(mse)->AddLayer(output);
+
+    //input tensors : batchSize * Dim .
+    Tensor xs(1, 2);
+    xs(0, 0) = -100.0;
+    xs(0, 1) = 2.0;
+
+    //make sure to alloc gpu memory before running forward and backward
+    network.AllocDeviceMemory();
+
+    //training loop, two iterations
+    network.Forward(xs);
+    network.Backward();
+    network.Step();
+    network.Forward(xs);
+    network.Backward();
+    network.Step();
+
+    //fetch result to cpu, these interface can be optimized, often used for printing result
+    mse->FetchPredYToCpu();
+    mse->PrintPredY();
+
+
+    //fetch grad to cpu and print the result, api could be optimized.
+    network.FetchGrad();
+    network.PrintGrad();
+
+
+    
+
+
+    //fetch the updated paramters of the neural network to cpu side
+    network.FetchResultToCpu();
+    //print the paramters (weights and bias of each layer)
+    network.Print();
+
+}
+```
