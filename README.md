@@ -9,6 +9,8 @@ We want **Zeta** to be accessible to everyone 🌎, including users without any 
 
 Another focus of the project is reinforcement learning 🎮 and game AI 🤖. **Zeta** can serve as a platform for experimenting with reinforcement learning ideas, especially in games, making research and experimentation both educational 📚 and fun 🎉.
 
+We hope more people could come to maintain this library, make it the best c++ deep learning framework in the world if possible.
+
 ---
 
 # Features ✨
