@@ -3,14 +3,17 @@
 #include "NeuralNetwork.h"
 #include <thread>
 #include <chrono>
+#include <type_traits>
 
 #include "test.h"
 #include "cu_tool.h"
 #include "cnn_test.h"
 #include "ThreeTac.h"
+#include "Gomoku.h"
 #include "mnist.h"
 #include "LeNet.h"
 #include "Go.h"
+#include "vm_test.h"
 
 using namespace zeta;
 
@@ -49,16 +52,18 @@ void GenAllTicTacSamples() {
 
 int main()
 {
+    //test_vm();
+
     CudaInit();
 
     CudaGetDeviceProps();
 
-    test_cnn_linear();
-    test_dnn_linear();
-    test_cnn_conv();
-    test_dnn_conv();
-    test_cnn_tictac();
-    test_blaslt();
+    //test_cnn_linear();
+    //test_dnn_linear();
+    //test_cnn_conv();
+    //test_dnn_conv();
+    //test_cnn_tictac();
+    //test_blaslt();
     //mnist_test();//please modify the path for testing!
 
     BinaryStream bs;
@@ -126,45 +131,52 @@ int main()
    
     mcts::Setting setting;
     setting.simulationCount = 100;
-    setting.batchSize = 128;
-    setting.miniBatchSize = 128;
+    setting.batchSize = 16;
+    setting.miniBatchSize = 16;
     setting.trainStepsPerEpisode = 100;
     setting.num_episodes = 200;
     setting.sample_episodes = 20;
-    setting.maxChessLength = 50;
+    setting.maxChessLength = GOMOKU_DIM;
     setting.checkpointCount = 1;
     setting.useDirichletNoise = true;
     
     setting.targetTemperature = 0.1;
     setting.explorationCount = 5; // minus means not use
 
-    std::shared_ptr<TicTacProxy> proxy = std::make_shared<TicTacProxy>();
+    //change here to test other proxy, may have runtime error, please report if you find it.
+    using ProxyType = TicTacProxy; 
+
+
+    auto proxy = std::make_shared<ProxyType>();
     proxy->createNNnetwork(0.01f, SGD);
     //proxy->nn->c = 0.0001;
 
-    //we use supervised learning here
-    int epoch = 20000;
-    float lr_min = 0.001f;
-    float lr_max = 0.1f;
-    float k = 20.0f;
-    float loss = 0;
-    float loss_prev = 0;
-    for (int i = 0; i < epoch; ++i) {
-        for (int j = 0; j < trainData.size(); ++j) {
-           loss = proxy->train(trainData[j], ys[j], vs[j]);
+    //we use supervised learning here, only for TicTacProxy
+    if constexpr (std::is_same_v<ProxyType, TicTacProxy> ) {
+        int epoch = 20000;
+        float lr_min = 0.001f;
+        float lr_max = 0.1f;
+        float k = 20.0f;
+        float loss = 0;
+        float loss_prev = 0;
+        for (int i = 0; i < epoch; ++i) {
+            for (int j = 0; j < trainData.size(); ++j) {
+                loss = proxy->train(trainData[j], ys[j], vs[j]);
+            }
+            float ab = abs(loss - loss_prev);
+            float lr = lr_min + (lr_max - lr_min) * expf(-k * ab);
+            loss_prev = loss;
+            //float lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(3.141592653589 * i / (epoch)));
+            if (i < 10000) {
+                proxy->setLearningRate(0.1);
+            }
+            else {
+                proxy->setLearningRate(0.02);
+            }
+
         }
-        float ab = abs(loss - loss_prev);
-        float lr = lr_min + (lr_max - lr_min) * expf(-k * ab);
-        loss_prev = loss;
-        //float lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(3.141592653589 * i / (epoch)));
-        if (i < 10000) {
-            proxy->setLearningRate(0.1);
-        }
-        else {
-            proxy->setLearningRate(0.02);
-        }
-        
     }
+    
 
     setting.dirichletNoise = 10.0f / proxy->totalActionCount;
 
@@ -174,12 +186,14 @@ int main()
 
     mcts.mctsProxy = proxy;
 
-    //mcts.trainProxy = proxy->Clone();
-    //mcts.train();
-
+    if constexpr (!std::is_same_v<ProxyType, TicTacProxy>) {
+        mcts.trainProxy = proxy->Clone();
+        mcts.train();
+    }
+   
     int d[64];
     bool human = true;
-    std::shared_ptr<mcts::State> state = std::make_shared<TicTac>();
+    std::shared_ptr<mcts::State> state = std::make_shared<ProxyType::StateType>();
     state->Init();
     std::cout << "human first? (1:human 0:AI)\n";
     std::cin >> d[0];

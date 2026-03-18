@@ -28,9 +28,6 @@ namespace zeta {
 
     CuLayer* CuTanhLayer::Clone() const {
         CuTanhLayer* r = new CuTanhLayer();
-        //r->inputShape = inputShape;
-        //r->outputShape = outputShape;
-        r->output = output->Clone();
         return r;
     }
 

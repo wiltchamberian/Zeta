@@ -120,3 +120,16 @@ void test_dnn_linear() {
 
 }
 ```
+
+
+# Change Log 📜
+
+## [v0.1.0] - Initial Release 🚀
+- Initial release of **Zeta** deep learning framework   
+
+
+## [v0.1.1] - Add Gomoku ⚡
+- **Gomoku** is added, and fix some cloning bugs.
+- Support training but it is very slow.
+- add if constexpr to simplify code modifying
+

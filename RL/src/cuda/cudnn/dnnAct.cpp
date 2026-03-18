@@ -148,7 +148,6 @@ namespace zeta {
     CuLayer* DnnAct::Clone() const {
         auto res = new DnnAct(layerType);
         res->layerType = layerType;
-        res->output = output->Clone();
         res->alpha = this->alpha;
         return res;
     }

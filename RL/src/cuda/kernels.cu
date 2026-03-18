@@ -1149,4 +1149,21 @@ __global__ void regular_kernel(
     return;
 }
 
+__global__ void normalize_sum(
+    float* inputs,
+    float* sum,
+    int total
+) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= total) return;
+    int k = total/2;
+    while (true) {
+        if (i > k) {
+            return;
+        }
+        inputs[i] = inputs[i] + inputs[i + k];
+        k = k / 2;
+    }
+}
+
 }

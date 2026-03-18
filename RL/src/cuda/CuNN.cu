@@ -109,6 +109,10 @@ namespace zeta {
     }
 
     void CuNN::CopyAndBindDeviceMemory(void* memory, size_t siz) {
+        if (head == nullptr) {
+            head = findRootLayer();
+        }
+
         if (deviceMemory != nullptr) {
             CU_CHECK(cudaFree(deviceMemory));
             deviceMemorySize = 0;
@@ -437,6 +441,9 @@ namespace zeta {
     void CuNN::CleanRefs() {
         for (int i = 0; i < layers.size(); ++i) {
             layers[i]->ref = nullptr;
+        }
+        for (int i = 0; i < tensors.size(); ++i) {
+            tensors[i]->ref = nullptr;
         }
     }
 

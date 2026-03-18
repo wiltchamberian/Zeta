@@ -111,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\Go.cpp" />
+    <ClCompile Include="src\app\Gomoku.cpp" />
     <ClCompile Include="src\app\LeNet.cpp" />
     <ClCompile Include="src\app\mcts.cpp" />
     <ClCompile Include="src\app\MctsAlgo.cpp" />
@@ -122,6 +123,7 @@
     <ClCompile Include="src\cpu\Layer.cpp" />
     <ClCompile Include="src\cpu\main.cpp" />
     <ClCompile Include="src\cpu\NeuralNetwork.cpp" />
+    <ClCompile Include="src\cpu\Vm.cpp" />
     <ClCompile Include="src\cuda\activationLayer.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnHelp.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnAct.cpp" />
@@ -130,9 +132,11 @@
     <ClCompile Include="src\cuda\cudnn\DnnTensor.cpp" />
     <ClCompile Include="src\cuda\CuTensor.cpp" />
     <ClCompile Include="src\test\cnn_test.cpp" />
+    <ClCompile Include="src\test\vm_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\app\Go.h" />
+    <ClInclude Include="src\app\Gomoku.h" />
     <ClInclude Include="src\app\LeNet.h" />
     <ClInclude Include="src\app\mcts.h" />
     <ClInclude Include="src\app\MctsAlgo.h" />
@@ -145,6 +149,7 @@
     <ClInclude Include="src\cpu\matrix.h" />
     <ClInclude Include="src\cpu\NeuralNetwork.h" />
     <ClInclude Include="src\cpu\tensor.h" />
+    <ClInclude Include="src\cpu\Vm.h" />
     <ClInclude Include="src\cuda\activationLayer.h" />
     <ClInclude Include="src\cuda\cudnn\DnnConv.h" />
     <ClInclude Include="src\cuda\cudnn\DNN.h" />
@@ -167,6 +172,7 @@
     <ClInclude Include="src\cuda\tensor_operator.h" />
     <ClInclude Include="src\test\cnn_test.h" />
     <ClInclude Include="src\test\test.h" />
+    <ClInclude Include="src\test\vm_test.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

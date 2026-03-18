@@ -60,7 +60,6 @@ namespace zeta {
     CuLayer* ActivationLayer::Clone() const {
         auto res = new ActivationLayer();
         res->layerType = layerType;
-        res->output = output->Clone();
         res->alpha = this->alpha;
         return res;
     }

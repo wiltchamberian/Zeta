@@ -277,6 +277,13 @@ namespace zeta {
         int NCHW,
         float c
     );
+
+    //normalize sum
+    __global__ void normalize_sum(
+        float* inputs,
+        float* sum,
+        int total
+    );
 }
 
 

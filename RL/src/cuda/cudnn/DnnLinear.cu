@@ -206,7 +206,7 @@ namespace zeta {
         BLAS_CHECK(cublasLtMatmulPreferenceCreate(&preference));
 
         // 不设置 workspace 限制
-        BLAS_CHECK(cublasLtMatmulAlgoGetHeuristic(
+        cublasStatus_t status = cublasLtMatmulAlgoGetHeuristic(
             dnn->ltHandle,
             opDesc,
             A,
@@ -216,7 +216,11 @@ namespace zeta {
             preference,
             requestAlgoCount,
             heuristics,
-            &returnedResults));
+            &returnedResults);
+        if (status != CUBLAS_STATUS_SUCCESS) {
+            std::cerr << "cuBLASLt error\n";
+            exit(EXIT_FAILURE);
+        }
 
         if (returnedResults == 0)
             throw std::runtime_error("No cublasLt algorithm found");

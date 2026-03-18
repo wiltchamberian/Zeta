@@ -163,7 +163,6 @@ namespace zeta {
         using CuDefaultLayer::CuDefaultLayer;
         virtual CuLayer* Clone() const {
             CuAddLayer* add = new CuAddLayer();
-            add->output = this->output->Clone();
             add->visit_count = 0;
             return add;
         }
@@ -174,7 +173,6 @@ namespace zeta {
         using CuDefaultLayer::CuDefaultLayer;
         virtual CuLayer* Clone() const {
             OutputLayer* add = new OutputLayer();
-            add->output = this->output->Clone();
             add->visit_count = 0;
             return add;
         }

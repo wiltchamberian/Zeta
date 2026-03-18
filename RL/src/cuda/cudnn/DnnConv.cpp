@@ -185,7 +185,8 @@ namespace zeta {
 
     CuLayer* DnnConv::Clone() const {
         DnnConv* layer = new DnnConv();
-        layer->output = this->output->Clone();
+
+        layerType == LayerType::Conv;
 
         layer->weights = this->weights.Clone();
         layer->b = this->b.Clone();
@@ -207,6 +208,11 @@ namespace zeta {
     }
 
     void DnnConv::init(int K, int C, int R, int S) {
+        weightsShape.N = K;
+        weightsShape.C = C;
+        weightsShape.H = R;
+        weightsShape.W = S;
+
         DNN_CHECK(cudnnCreateFilterDescriptor(&cudnnFdesc));
         DNN_CHECK(cudnnCreateConvolutionDescriptor(&cudnnConvDesc));
         DNN_CHECK(cudnnCreateTensorDescriptor(&cudnnBdesc));
