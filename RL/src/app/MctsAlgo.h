@@ -94,7 +94,9 @@ namespace mcts {
         virtual void setLearningRate(float rate) {}
         virtual void createNetwork(float learningRate) {}
         virtual void train(const std::vector<mcts::Entry>& entries) {}
+        virtual void train(const Tensor& states, const Tensor& actions, const Tensor& values) {}
         virtual Proxy* Clone() const = 0;
+        virtual void PrintLoss() const {}
         int totalActionCount = 0;
         int version = 0;
     };
@@ -234,7 +236,7 @@ namespace mcts {
         std::vector<std::unique_ptr<Edge>> edges;
         std::vector<Node*> children;
 
-        std::vector<float> getPolicyDistribution(float, int totalActionCount);
+        std::vector<double> getPolicyDistribution(double, int totalActionCount);
         int subTreeDepth = 0;
     };
 
@@ -282,6 +284,17 @@ namespace mcts {
             mutex.unlock();
             return res;
         }
+        static std::tuple<Tensor, Tensor, Tensor> EntriesToTensors(const std::vector<Entry>& entryVec) {
+            Tensor label(entryVec.size(), entryVec[0].label.shape[0]);
+            Tensor values(entryVec.size());
+            Tensor states(entryVec.size(), entryVec[0].state.shape[1], entryVec[0].state.shape[2], entryVec[0].state.shape[3]);
+            for (int i = 0; i < entryVec.size(); ++i) {
+                label[i].copy(entryVec[i].label);
+                values(i) = entryVec[i].value;
+                states[i].copy(entryVec[i].state);
+            }
+            return { states, label, values };
+        }
         std::vector<Entry> entries;
 
         std::vector<Entry> sample(size_t batch_size);
@@ -325,10 +338,13 @@ namespace mcts {
         int maxChessLength = 20;
         float dirichletNoise = 0.03f;
         float epsilon = 0.25f;
-        int explorationCount = 3;
+        
         int checkpointCount = 50;
         bool useDirichletNoise = true;
+
+        float startTemperature = 100.f;
         float targetTemperature = 0.1f;
+        int explorationCount = 10;
     };
 
     class Mcts {
@@ -352,19 +368,24 @@ namespace mcts {
         void expand(Node* root, Proxy* proxy);
 
         void MinMax(Node* state);
+        float computeTemperature(int chessCount);
+
+        int episode = 0;
 
         std::shared_ptr<Proxy> mctsProxy = nullptr; //for mcts simulation
         Proxy* trainProxy = nullptr;
         std::mt19937 gen;
         BufferQueue bufferQueue;
         Setting setting;
-        std::atomic<bool> stop;
+        std::atomic<bool> stop; //for training thread to stop
+        std::atomic<bool> trainLoopStop = false; //for training loop to stop
         NodePool<Node> pool;
 
         //for sychronize between traing thread and mcts thread
         std::atomic<int> globalVersion;
         std::mutex mtx;
         std::condition_variable cv;
+        std::atomic<bool> proxyConsumed;
 
         //for min max
         std::unordered_map<uint64_t, mcts::VisitState> visits;

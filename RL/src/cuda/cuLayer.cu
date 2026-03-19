@@ -246,15 +246,15 @@ void Linear::BindDevice(void* ptr) {
     dl.w_size = w_size;
     dl.in_dim = w_size / w.shape[0];//layer->weights.shape[1];
 
-    if (w.data()) {
-        CU_CHECK(cudaMemcpy(
-            dl.weights,
-            w.data(),
-            w_size * sizeof(float),
-            cudaMemcpyHostToDevice
-        ));
-        
-    }
+    //if (w.data()) {
+    //    CU_CHECK(cudaMemcpy(
+    //        dl.weights,
+    //        w.data(),
+    //        w_size * sizeof(float),
+    //        cudaMemcpyHostToDevice
+    //    ));
+    //    
+    //}
     addr += w_size * sizeof(float);
 
     // -------- bias --------
@@ -263,14 +263,14 @@ void Linear::BindDevice(void* ptr) {
     dl.bias = reinterpret_cast<float*>(addr);
     dl.b_size = b_size;
 
-    if (bias.data()) {
-        CU_CHECK(cudaMemcpy(
-            dl.bias,
-            bias.data(),
-            b_size * sizeof(float),
-            cudaMemcpyHostToDevice
-        ));
-    }
+    //if (bias.data()) {
+    //    CU_CHECK(cudaMemcpy(
+    //        dl.bias,
+    //        bias.data(),
+    //        b_size * sizeof(float),
+    //        cudaMemcpyHostToDevice
+    //    ));
+    //}
     
     addr += b_size * sizeof(float);
 
@@ -295,6 +295,27 @@ void Linear::BindDevice(void* ptr) {
         addr += w_size * sizeof(float);
         dl.b_v = reinterpret_cast<float*>(addr);
         addr += b_size * sizeof(float);
+    }
+}
+
+void Linear::HostToDevice() {
+    Tensor w = weights.contiguous();
+    if (w.data()) {
+        CU_CHECK(cudaMemcpy(
+            dl.weights,
+            w.data(),
+            dl.w_size * sizeof(float),
+            cudaMemcpyHostToDevice
+        ));
+    }
+    Tensor bias = b.contiguous();
+    if (b.data()) {
+        CU_CHECK(cudaMemcpy(
+            dl.bias,
+            bias.data(),
+            dl.b_size * sizeof(float),
+            cudaMemcpyHostToDevice
+        ));
     }
 }
 
@@ -812,14 +833,14 @@ void Conv2d::BindDevice(void* ptr) {
     dl.w_size = w_size;
     dl.in_dim = w_size / w.shape[0];//layer->weights.shape[1];
 
-    if (w.data()) {
-        CU_CHECK(cudaMemcpy(
-            dl.weights,
-            w.data(),
-            w_size * sizeof(float),
-            cudaMemcpyHostToDevice
-        ));
-    }
+    //if (w.data()) {
+    //    CU_CHECK(cudaMemcpy(
+    //        dl.weights,
+    //        w.data(),
+    //        w_size * sizeof(float),
+    //        cudaMemcpyHostToDevice
+    //    ));
+    //}
     
     addr += w_size * sizeof(float);
 
@@ -829,14 +850,14 @@ void Conv2d::BindDevice(void* ptr) {
     dl.bias = reinterpret_cast<float*>(addr);
     dl.b_size = b_size;
 
-    if (b.data()) {
-        CU_CHECK(cudaMemcpy(
-            dl.bias,
-            bias.data(),
-            b_size * sizeof(float),
-            cudaMemcpyHostToDevice
-        ));
-    }
+    //if (b.data()) {
+    //    CU_CHECK(cudaMemcpy(
+    //        dl.bias,
+    //        bias.data(),
+    //        b_size * sizeof(float),
+    //        cudaMemcpyHostToDevice
+    //    ));
+    //}
     
     addr += b_size * sizeof(float);
 
@@ -861,6 +882,27 @@ void Conv2d::BindDevice(void* ptr) {
         addr += w_size * sizeof(float);
         dl.b_v = reinterpret_cast<float*>(addr);
         addr += b_size * sizeof(float);
+    }
+}
+
+void Conv2d::HostToDevice() {
+    Tensor w = weights.contiguous();
+    if (w.data()) {
+        CU_CHECK(cudaMemcpy(
+            dl.weights,
+            w.data(),
+            dl.w_size * sizeof(float),
+            cudaMemcpyHostToDevice
+        ));
+    }
+    Tensor bias = b.contiguous();
+    if (b.data()) {
+        CU_CHECK(cudaMemcpy(
+            dl.bias,
+            bias.data(),
+            dl.b_size * sizeof(float),
+            cudaMemcpyHostToDevice
+        ));
     }
 }
 

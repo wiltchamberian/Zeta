@@ -226,7 +226,19 @@ namespace zeta {
             std::copy(list.begin(), list.end(), data_->begin());
         }
 
+        void setData(std::initializer_list<double> list) {
+            assert(numel() == list.size());
+            assert(is_continuous());
+            std::copy(list.begin(), list.end(), data_->begin());
+        }
+
         void setData(const std::vector<float>& list) {
+            assert(numel() == list.size());
+            assert(is_continuous());
+            std::copy(list.begin(), list.end(), data_->begin());
+        }
+
+        void setData(const std::vector<double>& list) {
             assert(numel() == list.size());
             assert(is_continuous());
             std::copy(list.begin(), list.end(), data_->begin());

@@ -96,6 +96,10 @@ namespace zeta {
         return;
     }
 
+    void MaxPool2d::HostToDevice() {
+
+    }
+
     CuLayer* MaxPool2d::Clone() const {
         MaxPool2d* r = new MaxPool2d();
         //r->inputShape = inputShape;

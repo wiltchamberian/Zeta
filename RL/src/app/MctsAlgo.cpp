@@ -6,14 +6,14 @@
 #include <random>
 
 namespace mcts{
-    std::vector<float> Node::getPolicyDistribution(float temperature, int totalActionCount) {
-        std::vector<float> distribution(totalActionCount, 0);
-        constexpr float alpha = 0.03f;  //eta ~ Dir(alpha)
-        constexpr float epsilon = 0.25f;
+    std::vector<double> Node::getPolicyDistribution(double temperature, int totalActionCount) {
+        std::vector<double> distribution(totalActionCount, 0);
+        constexpr double alpha = 0.03f;  //eta ~ Dir(alpha)
+        constexpr double epsilon = 0.25f;
         if (temperature == 1) {
-            float total = 0;
+            double total = 0;
             for (int i = 0; i < edges.size(); ++i) {
-                float v = edges[i]->visit_count;
+                double v = edges[i]->visit_count;
                 distribution[edges[i]->action] = v;
                 total += v;
             }
@@ -25,11 +25,11 @@ namespace mcts{
             return distribution;
         }
         else if (temperature == 0) {
-            float total = 0;
-            float max = -10000;
+            double total = 0;
+            double max = -10000;
             int id = 0;
             for (int i = 0; i < edges.size(); ++i) {
-                float v = edges[i]->visit_count;
+                double v = edges[i]->visit_count;
                 if (v > max) {
                     max = v;
                     id = i;
@@ -39,9 +39,9 @@ namespace mcts{
             return distribution;
         }
         else {
-            float total = 0;
+            double total = 0;
             for (int i = 0; i < edges.size(); ++i) {
-                float v = std::pow(edges[i]->visit_count, 1 / temperature);
+                double v = std::pow(edges[i]->visit_count, 1 / temperature);
                 distribution[edges[i]->action] = v;
                 total += v;
             }
@@ -217,17 +217,18 @@ namespace mcts{
             //std::cout << std::endl;
 
             //float temperature = cur->state->depth < 10 ? 1 : 0;
-            float temperature = chessCount < setting.explorationCount ? 1 : setting.targetTemperature;
+            float temperature = computeTemperature(chessCount);
 
             //action distribution
-            std::vector<float> policy_dis = cur->getPolicyDistribution(temperature , proxy->totalActionCount);
+            std::vector<double> policy_dis = cur->getPolicyDistribution(temperature , proxy->totalActionCount);
 
             std::discrete_distribution<> dist(policy_dis.begin(), policy_dis.end());
             int selectedAction = dist(gen);
 
             //record state
             Tensor policy(proxy->totalActionCount);
-            policy.setData(policy_dis);
+            std::vector<double> policy_real = cur->getPolicyDistribution(1, proxy->totalActionCount);
+            policy.setData(policy_real);
             labels.push_back(policy);
             states.push_back(cur->state);
 
@@ -248,7 +249,6 @@ namespace mcts{
             }
             pool.FreeTree(cur);
             cur = child;
-            //state = state.next_state(selectedAction);
 
             chessCount += 1;
             if (chessCount >= setting.maxChessLength) {
@@ -287,19 +287,38 @@ namespace mcts{
             }
             ReplayBuffer buf = bufferQueue.pop_s();
             if (!buf.entries.empty()) {
-                for (int i = 0; i < setting.trainStepsPerEpisode; ++i) {
-                    trainProxy->train(buf.entries);
+                if (trainLoopStop == true) {
+                    bufferCount += 1;
+                    auto proxy = std::shared_ptr<Proxy>(trainProxy->Clone());
+                    trainProxy->version += 1;
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        std::atomic_store(&mctsProxy, proxy);
+                        globalVersion++;
+                    }
+                    cv.notify_all();
+
+                    std::unique_lock<std::mutex> lock(mtx);
+                    cv.wait(lock, [&] {
+                        return trainLoopStop == false;
+                        });
+      
+                }
+                auto [state, action, reward] = ReplayBuffer::EntriesToTensors(buf.entries);
+                while (!trainLoopStop) {
+                    trainProxy->train(state, action, reward);
                     step += 1;
+                    if (step % 100 == 0) {
+                        std::cout << episode << std::endl;
+                        trainProxy->PrintLoss();
+                        std::cout << std::endl;
+                    }
                 }
-                bufferCount += 1;
-                auto proxy = std::shared_ptr<Proxy>(trainProxy->Clone());
-                trainProxy->version += 1;
-                {
-                    std::lock_guard<std::mutex> lock(mtx);
-                    std::atomic_store(&mctsProxy, proxy);
-                    globalVersion++;
-                }
-                cv.notify_all();
+                //for (int i = 0; i < setting.trainStepsPerEpisode; ++i) {
+                //    trainProxy->train(buf.entries);
+                //    step += 1;
+                //}
+                
             }
             else {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -327,13 +346,21 @@ namespace mcts{
         ReplayBuffer tmpBuffer;
         int maxLength = 0;
         for (int episode = 0; episode < setting.num_episodes; ++episode) {
+            this->episode = episode;
+
             int length = selfPlay(tmpBuffer, proxy);
             maxLength = std::max<int>(maxLength, length);
+
             if (tmpBuffer.entries.size() > setting.batchSize) {
 
                 bufferQueue.append_s(std::move(tmpBuffer));
 
                 //wait for a new trained proxy
+                while (trainLoopStop.load()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+                trainLoopStop.store(true);
+                
                 std::unique_lock<std::mutex> lock(mtx);
                 cv.wait(lock, [&] {
                     return globalVersion.load() != localVersion;
@@ -341,7 +368,9 @@ namespace mcts{
                 localVersion = globalVersion.load();
 
                 proxy = std::atomic_load(&mctsProxy);
-
+                trainLoopStop = false;
+                
+                cv.notify_all();
                 std::cout << "proxy_version:" << proxy->version << std::endl;
                 std::cout << "max_length:" << maxLength << std::endl;
             }
@@ -355,7 +384,10 @@ namespace mcts{
             //}
         }
 
+
         stop = true;
+        trainLoopStop.store(true);
+        
         th.join();
 
         return;
@@ -396,6 +428,15 @@ namespace mcts{
         gen.seed(seed);
     }
 
+    float Mcts::computeTemperature(int chessCount) {
+        if (chessCount >= setting.explorationCount)
+            return setting.targetTemperature;
+
+        float t = (float)chessCount / setting.explorationCount;
+
+        return setting.startTemperature *
+            pow(setting.targetTemperature / setting.startTemperature, t);
+    }
 
     void Mcts::MinMax(Node* root) {
 

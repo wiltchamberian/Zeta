@@ -57,6 +57,8 @@ namespace zeta {
     CuNN* DNN::Clone() const {
         DNN* nn = new DNN();
         nn->c = this->c;
+        nn->learningRate = this->learningRate;
+        nn->optimizerType = this->optimizerType;
         for (int i = 0; i < tensors.size(); ++i) {
             CuTensor* tensor = tensors[i]->Clone();
             tensors[i]->ref = tensor;

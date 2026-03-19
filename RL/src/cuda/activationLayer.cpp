@@ -45,6 +45,10 @@ namespace zeta {
         return;
     }
 
+    void ActivationLayer::HostToDevice() {
+
+    }
+
     size_t ActivationLayer::GetDeviceSize() {
         return 0;
     }

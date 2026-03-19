@@ -471,20 +471,11 @@ void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
     policyHead->BindLabelToDevice();
     valueHead->BindLabelToDevice();
 
-
-    Tensor crossLoss = policyHead->FetchLoss();
-    Tensor mseLoss = valueHead->FetchLoss();
-    Tensor loss = crossLoss + mseLoss;
-    loss.print_torch_style("loss:");
-    mseLoss.print_torch_style("mse:");
-    crossLoss.print_torch_style("cross:");
-
-
     nn->Backward();
     nn->Step();
 }
 
-float TicTacProxy::train(const Tensor & states, const Tensor & actions, const Tensor & values) {
+void TicTacProxy::train(const Tensor & states, const Tensor & actions, const Tensor & values) {
 
     policyHead->label = actions;
     valueHead->label = values;
@@ -494,21 +485,15 @@ float TicTacProxy::train(const Tensor & states, const Tensor & actions, const Te
     policyHead->BindLabelToDevice();
     valueHead->BindLabelToDevice();
 
-    Tensor crossLoss = policyHead->FetchLoss();
-    Tensor mseLoss = valueHead->FetchLoss();
-    Tensor loss = crossLoss + mseLoss;
-
-    std::cout << "loss:" << loss(0) << "mse:" << mseLoss(0) << "cross:" << crossLoss(0);
-    std::cout << "lr:" << nn->learningRate << std::endl;
-
     nn->Backward();
     nn->Step();
 
-    return loss(0);
+    return;
 }
 
 mcts::Proxy* TicTacProxy::Clone() const {
     TicTacProxy* proxy = new TicTacProxy();
+    proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
     proxy->root = this->root->ref;
     proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);
@@ -516,6 +501,17 @@ mcts::Proxy* TicTacProxy::Clone() const {
     this->nn->CleanRefs();
     proxy->totalActionCount = totalActionCount;
     return proxy;
+}
+
+void TicTacProxy::PrintLoss() const {
+    Tensor crossLoss = policyHead->FetchLoss();
+    Tensor mseLoss = valueHead->FetchLoss();
+    Tensor loss = crossLoss + mseLoss;
+    //loss.print_torch_style("loss:");
+    //mseLoss.print_torch_style("mse:");
+    //crossLoss.print_torch_style("cross:");
+    std::cout << "loss:" << loss(0) << "mse:" << mseLoss(0) << "cross:" << crossLoss(0);
+    std::cout << "lr:" << nn->learningRate << std::endl;
 }
 
 uint64_t Hash(const TicTac& s)

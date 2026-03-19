@@ -15,6 +15,7 @@ namespace zeta {
         virtual size_t GetDeviceSize();
         virtual void BindWorkspace(void* ptr);
         virtual void BindDevice(void* ptr);
+        virtual void HostToDevice() override;
         virtual CuLayer* Clone() const override;
         virtual void FetchResultToCpu();
         virtual void FetchGradToCpu();

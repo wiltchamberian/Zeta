@@ -264,7 +264,7 @@ void GomokuProxy::createNNnetwork(float l, OptimizerType optType) {
 
 mcts::Proxy* GomokuProxy::Clone() const {
     GomokuProxy* proxy = new GomokuProxy();
-    proxy->version = version + 1;
+    proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
     proxy->root = this->root->ref;
     proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);

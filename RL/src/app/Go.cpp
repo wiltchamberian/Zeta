@@ -395,6 +395,7 @@ void GoProxy::createNetwork(float learningRate) {
 
 mcts::Proxy* GoProxy::Clone() const {
     GoProxy* proxy = new GoProxy();
+    proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
     proxy->root = this->root->ref;
     proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);

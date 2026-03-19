@@ -202,8 +202,9 @@ public:
     void createNetwork(float learningRate);
     void createNNnetwork(float learningRate, OptimizerType type);
     void train(const std::vector<mcts::Entry>& entries);
-    float train(const Tensor& states, const Tensor& actions, const Tensor& values);
+    void train(const Tensor& states, const Tensor& actions, const Tensor& values);
     virtual Proxy* Clone() const override;
+    virtual void PrintLoss() const override;
 
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;

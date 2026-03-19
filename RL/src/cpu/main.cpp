@@ -127,22 +127,6 @@ int main()
         }
     }
 
-    
-   
-    mcts::Setting setting;
-    setting.simulationCount = 100;
-    setting.batchSize = 16;
-    setting.miniBatchSize = 16;
-    setting.trainStepsPerEpisode = 100;
-    setting.num_episodes = 200;
-    setting.sample_episodes = 20;
-    setting.maxChessLength = GOMOKU_DIM;
-    setting.checkpointCount = 1;
-    setting.useDirichletNoise = true;
-    
-    setting.targetTemperature = 0.1;
-    setting.explorationCount = 5; // minus means not use
-
     //change here to test other proxy, may have runtime error, please report if you find it.
     using ProxyType = TicTacProxy; 
 
@@ -161,7 +145,7 @@ int main()
         float loss_prev = 0;
         for (int i = 0; i < epoch; ++i) {
             for (int j = 0; j < trainData.size(); ++j) {
-                loss = proxy->train(trainData[j], ys[j], vs[j]);
+                proxy->train(trainData[j], ys[j], vs[j]);
             }
             float ab = abs(loss - loss_prev);
             float lr = lr_min + (lr_max - lr_min) * expf(-k * ab);
@@ -177,7 +161,20 @@ int main()
         }
     }
     
+    mcts::Setting setting;
+    setting.simulationCount = 200;
+    setting.batchSize = 128;
+    setting.miniBatchSize = 128;
+    setting.trainStepsPerEpisode = 100;
+    setting.num_episodes = 50;
+    setting.sample_episodes = 20;
+    setting.maxChessLength = 50; // GOMOKU_DIM;
+    setting.checkpointCount = 1;
+    setting.useDirichletNoise = false;
 
+    setting.targetTemperature = 0.1;
+    setting.explorationCount = 10; // minus means not use
+    setting.startTemperature = 1000;
     setting.dirichletNoise = 10.0f / proxy->totalActionCount;
 
     mcts::Mcts mcts;

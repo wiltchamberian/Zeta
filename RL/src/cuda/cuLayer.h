@@ -71,6 +71,7 @@ namespace zeta {
         virtual size_t GetDeviceSize() = 0;
         virtual void BindWorkspace(void* ptr) = 0;
         virtual void BindDevice(void* ptr) = 0;
+        virtual void HostToDevice() = 0;
         float* GetActivation();
         size_t GetActivationSize();
         float* GetDelta();
@@ -149,7 +150,9 @@ namespace zeta {
         virtual void BindDevice(void* ptr) {
             return;
         }
+        virtual void HostToDevice() {
 
+        }
         virtual void FetchResultToCpu() {
             ;
         }
@@ -196,6 +199,7 @@ namespace zeta {
         size_t GetDeviceSize();
         void BindWorkspace(void* ptr);
         void BindDevice(void* ptr);
+        void HostToDevice() override;
         float* GetDelta();
         size_t GetDeltaSize();
         float* GetPrevActivation();
@@ -316,6 +320,7 @@ namespace zeta {
         size_t GetWorkspaceSize();
         void BindWorkspace(void* ptr);
         void BindDevice(void* ptr);
+        void HostToDevice() override;
         size_t GetDeviceSize();
         void forward();
         virtual CuLayer* Clone() const override;

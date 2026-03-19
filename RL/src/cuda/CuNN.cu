@@ -102,6 +102,7 @@ namespace zeta {
         // 3️⃣ 遍历每层，分配指针并拷贝 host 数据
         Travel([&addr](CuLayer* layer)->bool {
             layer->BindDevice(addr);
+            layer->HostToDevice();
             addr += layer->GetDeviceSize() * sizeof(float);
             return false;
             });
@@ -408,6 +409,8 @@ namespace zeta {
     CuNN* CuNN::Clone() const {
         CuNN* nn = new CuNN();
         nn->c = this->c;
+        nn->learningRate = this->learningRate;
+        nn->optimizerType = this->optimizerType;
         for (int i = 0; i < tensors.size(); ++i) {
             CuTensor* tensor = tensors[i]->Clone();
             tensors[i]->ref = tensor;

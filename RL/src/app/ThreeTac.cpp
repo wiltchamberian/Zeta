@@ -214,7 +214,7 @@ void ThreeTacProxy::createNetwork(float learningRate) {
 
 mcts::Proxy* ThreeTacProxy::Clone() const {
     ThreeTacProxy* proxy = new ThreeTacProxy();
-    proxy->version = version + 1;
+    proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());
     proxy->root = this->root->ref;
     proxy->policyHead = dynamic_cast<CuSoftmaxCrossEntropyLayer*>(this->policyHead->ref);
