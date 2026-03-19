@@ -61,7 +61,7 @@ namespace zeta {
         CuLayer() {
 
         }
-
+        virtual ~CuLayer() {}
         virtual void forward() = 0;
         virtual void backwardEx() = 0;
         virtual void applyGradient() = 0;
@@ -128,6 +128,7 @@ namespace zeta {
     class CuDefaultLayer :public CuLayer {
     public:
         using CuLayer::CuLayer;
+        virtual ~CuDefaultLayer() {}
         virtual void forward() {}
         virtual void backwardEx() {};
         virtual void InferOutputShape(TensorShape networkInput) {
@@ -249,6 +250,7 @@ namespace zeta {
         CuSoftmaxCrossEntropyLayer() {
             layerType = LayerType::Softmax;
         }
+        virtual ~CuSoftmaxCrossEntropyLayer() {}
         Tensor FetchLoss();
         void forward();
         void backwardEx();

@@ -6,6 +6,7 @@ namespace zeta {
     public:
         ActivationLayer();
         ActivationLayer(LayerType lt);
+        virtual ~ActivationLayer() {}
         virtual void forward();
         virtual void backwardEx();
         virtual void applyGradient();

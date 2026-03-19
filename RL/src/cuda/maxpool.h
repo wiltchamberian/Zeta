@@ -4,6 +4,7 @@
 namespace zeta {
     class MaxPool2d : public CuLayer {
     public:
+        virtual ~MaxPool2d() {}
         MaxPool2d();
         MaxPool2d(int h, int w);
         virtual void forward();

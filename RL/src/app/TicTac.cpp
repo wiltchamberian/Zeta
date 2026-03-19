@@ -302,6 +302,9 @@ std::vector<int> TicTac::legalActions() const{
     return actions;
 }
 
+TicTacProxy::~TicTacProxy() {
+
+}
 
 std::shared_ptr<mcts::State> TicTacProxy::createState() {
     std::shared_ptr<mcts::State> st = std::make_shared<TicTac>();

@@ -193,6 +193,7 @@ public:
 
 class TicTacProxy : public mcts::Proxy {
 public:
+    virtual ~TicTacProxy();
     using StateType = TicTac;
     std::shared_ptr<CuNN> nn = nullptr;
 

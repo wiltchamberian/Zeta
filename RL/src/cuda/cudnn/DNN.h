@@ -8,7 +8,7 @@ namespace zeta {
     class DNN : public CuNN {
     public:
         DNN();
-        ~DNN();
+        virtual ~DNN();
         template<typename T, typename... Args>
         T* CreateDnnLayer(Args&&... args)
         {

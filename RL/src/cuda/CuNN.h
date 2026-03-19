@@ -50,7 +50,7 @@ namespace zeta {
 
         CuNN(float lr = 1.0);
 
-        ~CuNN();
+        virtual ~CuNN();
 
         void ResetOptimizer();
 

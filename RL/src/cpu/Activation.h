@@ -3,6 +3,7 @@
 namespace zeta {
     class Activation {
     public:
+        virtual ~Activation() {}
         virtual float activate(const float x) = 0;
         virtual float dActivate(const float x) = 0;
     };

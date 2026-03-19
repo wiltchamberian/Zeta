@@ -89,6 +89,7 @@ namespace mcts {
 
     class Proxy {
     public:
+        virtual ~Proxy() {}
         virtual std::shared_ptr<mcts::State> createState() { return nullptr; }
         virtual CuHead predict(const mcts::State* state) { return CuHead(); }
         virtual void setLearningRate(float rate) {}
