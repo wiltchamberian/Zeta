@@ -18,6 +18,8 @@ namespace zeta {
         virtual void BindDevice(void* ptr);
         virtual void HostToDevice() override;
         virtual CuLayer* Clone() const override;
+        virtual void Save(BinaryStream& stream) const override;
+        virtual void Load(BinaryStream& stream) override;
         virtual void FetchResultToCpu();
         virtual void FetchGradToCpu();
         virtual void Print();

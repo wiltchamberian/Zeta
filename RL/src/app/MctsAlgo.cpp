@@ -4,6 +4,7 @@
 #include "tanhLayer.h"
 #include <algorithm>
 #include <random>
+#include <array>
 
 namespace mcts{
     std::vector<double> Node::getPolicyDistribution(double temperature, int totalActionCount) {
@@ -60,17 +61,20 @@ namespace mcts{
         batch.reserve(batch_size);
 
         std::uniform_int_distribution<size_t> dist(0, entries.size() - 1);
-        std::mt19937 rng(std::random_device{}());
 
         for (size_t i = 0; i < batch_size; ++i)
         {
-            batch.push_back(entries[dist(rng)]);
+            batch.push_back(entries[dist(gen)]);
         }
         return batch;
     }
 
+    void ReplayBuffer::shuffle() {
+        std::shuffle(entries.begin(), entries.end(),gen);
+    }
 
-    int Mcts::backTrace(Node* node, float value) {
+
+    int Mcts::backTrace(Node* node, float value) const {
         while (node->parent != nullptr) {
             value = -value;
             node->parentEdge->W += value;
@@ -103,7 +107,7 @@ namespace mcts{
         backTrace(cur, head.value);
     }
 
-    void Mcts::simulate(Node* root, Proxy* proxy) {
+    void Mcts::simulate(Node* root, Proxy* proxy, NodePool<mcts::Node>* pool) {
         Node* cur = root;
         while (true) {
             if (cur->state->is_terminal()) {
@@ -145,7 +149,7 @@ namespace mcts{
             assert(selectedEdge != nullptr);
 
             if (cur->children[best] == nullptr) {
-                cur->children[best] = pool.Alloc();
+                cur->children[best] = pool->Alloc();
                 cur->children[best]->parent = cur;
                 cur->children[best]->parentEdge = selectedEdge;
             }
@@ -189,11 +193,11 @@ namespace mcts{
         }
     }
 
-    int Mcts::selfPlay(ReplayBuffer& replay, std::shared_ptr<Proxy> proxy) {
+    int Mcts::selfPlay(ReplayBuffer& replay, std::shared_ptr<Proxy> proxy, NodePool<mcts::Node>* pool) {
         std::vector<Tensor> labels;
         std::vector<std::shared_ptr<State>> states;
 
-        Node* cur = pool.Alloc();
+        Node* cur = pool->Alloc();
 
         cur->state = proxy->createState();
 
@@ -209,7 +213,7 @@ namespace mcts{
             }
             
             for (int i = 0; i < setting.simulationCount; ++i) {
-                simulate(cur, proxy.get());
+                simulate(cur, proxy.get(), pool);
             }
             //std::cout << "Depth: " << cur->state.depth << " visits: ";
             //for (auto& e : cur->edges)
@@ -226,11 +230,27 @@ namespace mcts{
             int selectedAction = dist(gen);
 
             //record state
-            Tensor policy(proxy->totalActionCount);
+            
             std::vector<double> policy_real = cur->getPolicyDistribution(1, proxy->totalActionCount);
-            policy.setData(policy_real);
-            labels.push_back(policy);
-            states.push_back(cur->state);
+            
+
+            std::vector<std::vector<double>> policies;
+            std::vector<std::shared_ptr<mcts::State>> newStates = cur->state->permuteStates(policy_real, policies);
+            if (!newStates.empty()) {
+                for (int i = 0; i < newStates.size(); ++i) {
+                    states.push_back(newStates[i]);
+                    Tensor policy(proxy->totalActionCount);
+                    policy.setData(policies[i]);
+                    labels.push_back(policy);
+                }
+            }
+            else {
+                Tensor policy(proxy->totalActionCount);
+                policy.setData(policy_real);
+                labels.push_back(policy);
+                states.push_back(cur->state);
+            }
+            
 
             bool bingo = false;
             mcts::Node* child = nullptr;
@@ -247,7 +267,7 @@ namespace mcts{
             if (!bingo) {
                 assert(false);
             }
-            pool.FreeTree(cur);
+            pool->FreeTree(cur);
             cur = child;
 
             chessCount += 1;
@@ -257,7 +277,7 @@ namespace mcts{
         }
         int winner = (chessCount >= setting.maxChessLength) ? 0 : cur->state->winner();
         //float terminalValue = cur->state->terminal_value();
-        replay.lock();
+        //replay.lock();
         for (int i = states.size() - 1; i >= 0/*states.size()-3*/; --i) {
             Entry entry;
             entry.label = labels[i];
@@ -271,8 +291,8 @@ namespace mcts{
             }
             replay.entries.push_back(entry);
         }
-        replay.unlock();
-        pool.FreeTree(cur);
+        //replay.unlock();
+        pool->FreeTree(cur);
 
         return chessCount;
     }
@@ -280,14 +300,12 @@ namespace mcts{
     void Mcts::train_proxy() {
         int step = 0;
         int bufferCount = 0;
-        while (true) {
-            int doubleStop = 0;
-            if (stop) {
-                doubleStop += 1;
-            }
-            ReplayBuffer buf = bufferQueue.pop_s();
+        while (!endTrain) {
+            //ReplayBuffer buf = bufferQueue.pop_s();
+            ReplayBuffer buf = replayBuffer.clone_s();
             if (!buf.entries.empty()) {
                 if (trainLoopStop == true) {
+                    
                     bufferCount += 1;
                     auto proxy = std::shared_ptr<Proxy>(trainProxy->Clone());
                     trainProxy->version += 1;
@@ -297,15 +315,17 @@ namespace mcts{
                         globalVersion++;
                     }
                     cv.notify_all();
-
                     std::unique_lock<std::mutex> lock(mtx);
                     cv.wait(lock, [&] {
                         return trainLoopStop == false;
                         });
       
                 }
-                auto [state, action, reward] = ReplayBuffer::EntriesToTensors(buf.entries);
-                while (!trainLoopStop) {
+                //auto [state, action, reward] = ReplayBuffer::EntriesToTensors(buf.entries);
+                buf.shuffle();
+                while ((!trainLoopStop) && (!endTrain)) {
+                    auto entries = buf.sample(setting.miniBatchSize);
+                    auto [state, action, reward] = ReplayBuffer::EntriesToTensors(entries);
                     trainProxy->train(state, action, reward);
                     step += 1;
                     if (step % 100 == 0) {
@@ -314,20 +334,11 @@ namespace mcts{
                         std::cout << std::endl;
                     }
                 }
-                //for (int i = 0; i < setting.trainStepsPerEpisode; ++i) {
-                //    trainProxy->train(buf.entries);
-                //    step += 1;
-                //}
+                
                 
             }
             else {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-            if (stop) {
-                doubleStop += 1;
-            }
-            if (doubleStop) {
-                break;
             }
         }
         std::cout << "step:" << step << std::endl;
@@ -335,6 +346,7 @@ namespace mcts{
     }
 
     void Mcts::train() {
+#define THREAD_NUM 6
         InitRandom();
 
         int localVersion = globalVersion.load();
@@ -345,20 +357,44 @@ namespace mcts{
 
         ReplayBuffer tmpBuffer;
         int maxLength = 0;
+        ReplayBuffer tempBuffers[THREAD_NUM];
+        //run four episode at once...
+        NodePool<mcts::Node> pool[THREAD_NUM];
+        std::array<std::shared_ptr<Proxy>, THREAD_NUM> proxies;
+        proxies[0] = proxy;
+        for (int i = 1; i < THREAD_NUM; ++i) {
+            proxies[i] = std::shared_ptr<Proxy>(proxy->Clone());
+        }
         for (int episode = 0; episode < setting.num_episodes; ++episode) {
             this->episode = episode;
 
-            int length = selfPlay(tmpBuffer, proxy);
-            maxLength = std::max<int>(maxLength, length);
+            std::vector<std::thread> threads;
+            for (int i = 0; i < THREAD_NUM; i++) {
+                threads.emplace_back([&tempBuffers, &pool, this, &proxies, i] {
+                    selfPlay(tempBuffers[i], proxies[i], &pool[i]);
+                    });
+            }
+            for (auto& t : threads) {
+                t.join();
+            }
 
-            if (tmpBuffer.entries.size() > setting.batchSize) {
+            //int length = selfPlay(tmpBuffer, proxy, &pool);
+            //maxLength = std::max<int>(maxLength, length);
+            
+            //int totalSize = tmpBuffer.entries.size();
+            int totalSize = tempBuffers[0].entries.size() + tempBuffers[1].entries.size() + tempBuffers[2].entries.size() + tempBuffers[3].entries.size();
+            if (totalSize > setting.batchSize) {
 
-                bufferQueue.append_s(std::move(tmpBuffer));
+                //bufferQueue.append_s(std::move(tmpBuffer));
+                /*replayBuffer.append_s(tmpBuffer.entries);
+                tmpBuffer.entries.clear();*/
+
+                for (int i = 0; i < THREAD_NUM; ++i) {
+                    replayBuffer.append_s(tempBuffers[i].entries);
+                    tempBuffers[i].entries.clear();
+                }
 
                 //wait for a new trained proxy
-                while (trainLoopStop.load()) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
                 trainLoopStop.store(true);
                 
                 std::unique_lock<std::mutex> lock(mtx);
@@ -368,25 +404,21 @@ namespace mcts{
                 localVersion = globalVersion.load();
 
                 proxy = std::atomic_load(&mctsProxy);
+                proxies[0] = proxy;
+                for (int k = 1; k < THREAD_NUM; ++k) {
+                    proxies[k].reset(proxy->Clone());
+                }
+
                 trainLoopStop = false;
                 
                 cv.notify_all();
                 std::cout << "proxy_version:" << proxy->version << std::endl;
                 std::cout << "max_length:" << maxLength << std::endl;
             }
-            //if ((episode+1) % setting.sample_episodes == 0) {
-            //    //wait for a new trained proxy
-            //    std::unique_lock<std::mutex> lock(mtx);
-            //    cv.wait(lock, [&] {
-            //        return globalVersion.load() != localVersion;
-            //        });
-            //    localVersion = globalVersion.load();
-            //}
         }
 
 
-        stop = true;
-        trainLoopStop.store(true);
+        endTrain.store(true);
         
         th.join();
 
@@ -428,7 +460,7 @@ namespace mcts{
         gen.seed(seed);
     }
 
-    float Mcts::computeTemperature(int chessCount) {
+    float Mcts::computeTemperature(int chessCount) const{
         if (chessCount >= setting.explorationCount)
             return setting.targetTemperature;
 

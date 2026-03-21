@@ -177,7 +177,7 @@ void ThreeTacState::printState() const {
 }
 
 
-std::shared_ptr<mcts::State> ThreeTacProxy::createState() {
+std::shared_ptr<mcts::State> ThreeTacProxy::createState() const {
     auto state = std::make_shared<ThreeTacState>();
     state->Init();
     return state;

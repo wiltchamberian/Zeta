@@ -77,7 +77,7 @@ namespace zeta {
             &algo_fwd,        // algo
             workspace_fwd,        // workspace
             workspaceSize_fwd,              // workspace size
-            0               // stream
+            nn->stream               // stream
         ));
 
         int C = output->shape.C;
@@ -85,7 +85,7 @@ namespace zeta {
         int NCHW = output->shape.NumElements();
         dim3 block(TILE_WIDTH);
         dim3 grid((NCHW + TILE_WIDTH - 1) / TILE_WIDTH);
-        tensor_add_bias_kernel << <grid, block >> > (output->v, dl.bias, HW, C, NCHW);
+        tensor_add_bias_kernel << <grid, block,0, nn->stream >> > (output->v, dl.bias, HW, C, NCHW);
 
     }
 
@@ -124,7 +124,7 @@ namespace zeta {
                 &algo_dx,
                 workspace_dx,
                 workspaceSize_dx,
-                0
+                nn->stream
             );
             if (status != CUBLAS_STATUS_SUCCESS) {
                 assert(false);
@@ -153,7 +153,7 @@ namespace zeta {
             &algo_dw,
             workspace_dw,
             workspaceSize_dw,
-            0
+            nn->stream
         );
         if (status != CUBLAS_STATUS_SUCCESS) {
             assert(false);
@@ -161,7 +161,15 @@ namespace zeta {
     }
 
     void DnnLinear::bgrad() {
-        Linear::bgrad();
+        dim3 block(TILE_WIDTH, TILE_WIDTH);
+        int dim_delta = output->shape.Dim();
+        dim3 grid((dim_delta + block.x - 1) / block.x);
+        compute_grad_b_kernel << <grid, block.x, 0, nn->stream >> > (
+            output->delta/*ws.deltas[l]*/,
+            dl.grad_b/*deviceLayers[l].grad_b*/,
+            input->shape.N,
+            dim_delta
+            );
     }
 
     void DnnLinear::BindWorkspace(void* ptr) {

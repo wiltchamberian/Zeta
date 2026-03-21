@@ -29,7 +29,7 @@ public:
 class GoProxy : public TicTacProxy {
 public:
     using StateType = Go;
-    virtual std::shared_ptr<mcts::State> createState();
+    virtual std::shared_ptr<mcts::State> createState() const override;
     void createNetwork(float learningRate);
     virtual Proxy* Clone() const override;
 };

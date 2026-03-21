@@ -2,6 +2,7 @@
 #include "tensor.h"
 #include "Layer.h"
 #include "CuTensor.h"
+#include "binary.h"
 #include <fstream>
 
 
@@ -38,6 +39,8 @@ namespace zeta {
 
     class CuNN;
 
+    //Must not change order, new items add to tail
+    //otherwise can't not read old files
     enum class LayerType {
         Basic,
         Fully,
@@ -51,7 +54,10 @@ namespace zeta {
         Act_Identity,
         Act_SWISH,
         Mse,
-        Softmax
+        Softmax,
+        Add,
+        Output,
+        MaxPooling
     };
 
 
@@ -82,6 +88,8 @@ namespace zeta {
         virtual void Print() {}
         virtual void PrintGrad() {}
         virtual void Save(std::fstream fs) {}
+        virtual void Save(BinaryStream& stream) const {}
+        virtual void Load(BinaryStream& stream) {}
         virtual float GetAlpha() { return 1; }
         virtual void SetNN(CuNN* nn) { this->nn = nn; }
 
@@ -139,6 +147,12 @@ namespace zeta {
         virtual CuLayer* Clone() const {
             return nullptr;
         }
+        virtual void Save(BinaryStream& stream) const override {
+            stream.write<int>((int)layerType);
+        }
+        virtual void Load(BinaryStream& stream) override {
+            stream.read<int>();
+        }
         virtual size_t GetWorkspaceSize() {
             return 0;
         };
@@ -164,7 +178,10 @@ namespace zeta {
 
     class CuAddLayer : public CuDefaultLayer {
     public:
-        using CuDefaultLayer::CuDefaultLayer;
+        //using CuDefaultLayer::CuDefaultLayer;
+        CuAddLayer() :CuDefaultLayer() {
+            layerType = LayerType::Add;
+        }
         virtual CuLayer* Clone() const {
             CuAddLayer* add = new CuAddLayer();
             add->visit_count = 0;
@@ -174,7 +191,10 @@ namespace zeta {
 
     class OutputLayer : public CuDefaultLayer {
     public:
-        using CuDefaultLayer::CuDefaultLayer;
+        OutputLayer() :CuDefaultLayer() {
+            layerType = LayerType::Output;
+        }
+        //using CuDefaultLayer::CuDefaultLayer;
         virtual CuLayer* Clone() const {
             OutputLayer* add = new OutputLayer();
             add->visit_count = 0;
@@ -214,7 +234,9 @@ namespace zeta {
         void PrintDelta();
         void PrintBGrad();
         void PrintWGrad();
-        virtual void Save(std::fstream fs);
+        virtual void Save(std::fstream fs) override;
+        virtual void Save(BinaryStream& stream) const override;
+        virtual void Load(BinaryStream& stream) override;
         float GetAlpha() {
             return alpha;
         }
@@ -261,6 +283,8 @@ namespace zeta {
         void BindDevice(void* ptr);
         size_t GetDeviceSize();
         virtual CuLayer* Clone() const override;
+        virtual void Save(BinaryStream& stream) const override;
+        virtual void Load(BinaryStream& stream) override;
 
         void InferOutputShape(TensorShape networkInput);
 
@@ -302,6 +326,7 @@ namespace zeta {
         void FetchResultToCpu();
         void Print();
         CuLayer* Clone() const;
+        
         Tensor label;
         float* y_label = nullptr;
         Tensor predY;
@@ -326,6 +351,8 @@ namespace zeta {
         size_t GetDeviceSize();
         void forward();
         virtual CuLayer* Clone() const override;
+        virtual void Save(BinaryStream& stream) const override;
+        virtual void Load(BinaryStream& stream) override;
         void backward(const float* delta_next, const float* w_next);
         void dgrad();
         void backwardEx();

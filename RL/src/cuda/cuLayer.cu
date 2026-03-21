@@ -6,6 +6,7 @@
 #include "device_launch_parameters.h"
 #include "CuNN.h"
 #include "cudnn_backend.h"
+#include "TensorStream.h"
 
 namespace zeta {
 
@@ -300,7 +301,7 @@ void Linear::BindDevice(void* ptr) {
 
 void Linear::HostToDevice() {
     Tensor w = weights.contiguous();
-    if (w.data()) {
+    if (w.data() && dl.weights) {
         CU_CHECK(cudaMemcpy(
             dl.weights,
             w.data(),
@@ -309,7 +310,7 @@ void Linear::HostToDevice() {
         ));
     }
     Tensor bias = b.contiguous();
-    if (b.data()) {
+    if (b.data() && dl.bias) {
         CU_CHECK(cudaMemcpy(
             dl.bias,
             bias.data(),
@@ -413,6 +414,31 @@ void Linear::PrintWGrad() {
 void Linear::Save(std::fstream fs) {
     FetchResultToCpu();
 
+}
+
+void Linear::Save(BinaryStream& stream) const {
+    Tensor theWeights;
+    theWeights.zeros(dl.b_size, dl.in_dim);
+    Tensor theBias;
+    theBias.zeros(dl.b_size);
+    CU_CHECK(cudaMemcpy(theWeights.data(), dl.weights, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    CU_CHECK(cudaMemcpy(theBias.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    
+    stream.write<int>((int)LayerType::Fully);
+    stream.write<int>(dl.in_dim);
+    stream.write<int>(dl.b_size);
+    TensorStream::Save(theWeights, stream);
+    TensorStream::Save(theBias, stream);
+}
+
+void Linear::Load(BinaryStream& stream) {
+    stream.read<int>();
+    dl.in_dim = stream.read<int>();
+    dl.b_size = stream.read<int>();
+    dl.w_size = dl.in_dim * dl.b_size;
+    weights = TensorStream::Load(dl.in_dim, dl.b_size, stream);
+    b = TensorStream::Load(dl.b_size, stream);
+    HostToDevice();
 }
 
 /// <summary>
@@ -578,6 +604,14 @@ CuLayer* CuSoftmaxCrossEntropyLayer::Clone() const {
     //r->outputShape = this->outputShape;
     r->output = output->Clone();
     return r;
+}
+
+void CuSoftmaxCrossEntropyLayer::Save(BinaryStream& stream) const {
+    stream.write<int>((int)LayerType::Softmax);
+}
+
+void CuSoftmaxCrossEntropyLayer::Load(BinaryStream& stream) {
+    stream.read<int>();
 }
 
 void CuSoftmaxCrossEntropyLayer::InferOutputShape(TensorShape networkInput) {
@@ -978,6 +1012,36 @@ CuLayer* Conv2d::Clone() const{
     layer->dl.b_size = this->dl.b_size;
     
     return layer;
+}
+
+void Conv2d::Save(BinaryStream& stream) const {
+    Tensor theWeights;
+    theWeights.zeros(weightsShape.N, weightsShape.C, weightsShape.H, weightsShape.W);
+    Tensor theBias;
+    theBias.zeros(weightsShape.N);
+    CU_CHECK(cudaMemcpy(theWeights.data(), dl.weights, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    CU_CHECK(cudaMemcpy(theBias.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+
+    stream.write<int>((int)LayerType::Conv);
+    stream.write<int>(weightsShape.N);
+    stream.write<int>(weightsShape.C);
+    stream.write<int>(weightsShape.H);
+    stream.write<int>(weightsShape.W);
+    TensorStream::Save(theWeights, stream);
+    TensorStream::Save(theBias, stream);
+}
+
+void Conv2d::Load(BinaryStream& stream) {
+    stream.read<int>();
+    weightsShape.N = stream.read<int>();
+    weightsShape.C = stream.read<int>();
+    weightsShape.H = stream.read<int>();
+    weightsShape.W = stream.read<int>();
+    dl.w_size = weightsShape.NumElements();
+    dl.b_size = weightsShape.N;
+    weights = TensorStream::Load(weightsShape.N, weightsShape.C, weightsShape.H, weightsShape.W, stream);
+    b = TensorStream::Load(weightsShape.N, stream);
+    HostToDevice();
 }
 
 void Conv2d::backward(const float* delta_next, const float* w_next) {

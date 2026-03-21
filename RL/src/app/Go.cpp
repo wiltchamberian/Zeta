@@ -325,7 +325,7 @@ void Go::printState() const {
 
 
 
-std::shared_ptr<mcts::State> GoProxy::createState() {
+std::shared_ptr<mcts::State> GoProxy::createState() const {
     std::shared_ptr<Go> res = std::make_shared<Go>();
     res->Init();
     return res;

@@ -60,6 +60,20 @@ namespace zeta {
             return value;
         }
 
+        template<typename T>
+        T peek() const
+        {
+            static_assert(std::is_trivially_copyable<T>::value,
+                "Only POD supported");
+
+            if (readPos + sizeof(T) > writePos)
+                throw std::runtime_error("Peek overflow");
+
+            T value;
+            std::memcpy(&value, buffer.data() + readPos, sizeof(T));
+            return value; // ²»¸Ä±ä readPos
+        }
+
         void readBytes(void* dst, size_t size);
 
         template<typename T>
@@ -83,6 +97,14 @@ namespace zeta {
         {
             writePos = 0;
             readPos = 0;
+        }
+
+        size_t GetReadPos() const {
+            return readPos;
+        }
+
+        size_t GetWritePos() const {
+            return writePos;
         }
 
         size_t size() const { return writePos; }

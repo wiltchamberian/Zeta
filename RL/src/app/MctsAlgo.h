@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <condition_variable>
+#include <climits>
 
 #include "CuNN.h"
 #include "tensor.h"
@@ -83,6 +84,8 @@ namespace mcts {
         }
         virtual uint64_t Hash() const { return 0;  }
         virtual void UnHash(uint64_t hash) { return;  }
+        virtual std::vector<std::shared_ptr<mcts::State>> permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies) { return {}; }
+
         int player = 1;
         int depth = 0;
     };
@@ -90,8 +93,10 @@ namespace mcts {
     class Proxy {
     public:
         virtual ~Proxy() {}
-        virtual std::shared_ptr<mcts::State> createState() { return nullptr; }
+        virtual std::shared_ptr<mcts::State> createState() const { return nullptr; }
+        virtual void Save(const std::string& path) const {}
         virtual CuHead predict(const mcts::State* state) { return CuHead(); }
+        virtual CuHead predict_s(const mcts::State* state) { return CuHead(); }
         virtual void setLearningRate(float rate) {}
         virtual void createNetwork(float learningRate) {}
         virtual void train(const std::vector<mcts::Entry>& entries) {}
@@ -257,8 +262,13 @@ namespace mcts {
             entries = std::move(buf.entries);
             return *this;
         }
-        std::mt19937 gen;
-        std::mutex mutex;
+        ReplayBuffer clone_s() {
+            std::lock_guard<std::mutex> lock(mutex);
+            ReplayBuffer output;
+            output.entries = entries;
+            return output;
+        }
+        
         void lock() {
             mutex.lock();
         }
@@ -266,9 +276,12 @@ namespace mcts {
             mutex.unlock();
         }
         void append_s(const std::vector<Entry>& entry) {
-            mutex.lock();
+            std::lock_guard<std::mutex> lock(mutex);
             entries.insert(entries.end(), entry.begin(), entry.end());
-            mutex.unlock();
+            if (entries.size() > maxSize) {
+                size_t remove_count = entries.size() - maxSize;
+                entries.erase(entries.begin(), entries.begin() + remove_count);
+            }
         }
         std::vector<Entry> uniform_sample(int count, int sample_count) {
             std::vector<Entry> res;
@@ -296,9 +309,13 @@ namespace mcts {
             }
             return { states, label, values };
         }
+        int maxSize = INT_MAX;
         std::vector<Entry> entries;
-
+        std::mt19937 gen;
+        std::mutex mutex;
+        void setMaxSize(int siz) { maxSize = siz;  }
         std::vector<Entry> sample(size_t batch_size);
+        void shuffle();
     };
 
     class BufferQueue {
@@ -350,12 +367,12 @@ namespace mcts {
 
     class Mcts {
     public:
-        int backTrace(Node* n, float value);
-        void simulate(Node* n, Proxy* proxy);
+        int backTrace(Node* n, float value) const;
+        void simulate(Node* n, Proxy* proxy, NodePool<mcts::Node>* pool);
         //一次搜索包含多次mcts simulation
         void addDirichletNoise(Node* cur);
         //一次完整对弈，每一步棋包含一次搜索
-        int selfPlay(ReplayBuffer& buffer, std::shared_ptr<Proxy> proxy);
+        int selfPlay(ReplayBuffer& buffer, std::shared_ptr<Proxy> proxy, NodePool<mcts::Node>* pool);
         //train_thread
         void train_proxy();
         //一次训练
@@ -369,7 +386,7 @@ namespace mcts {
         void expand(Node* root, Proxy* proxy);
 
         void MinMax(Node* state);
-        float computeTemperature(int chessCount);
+        float computeTemperature(int chessCount) const;
 
         int episode = 0;
 
@@ -377,6 +394,7 @@ namespace mcts {
         Proxy* trainProxy = nullptr;
         std::mt19937 gen;
         BufferQueue bufferQueue;
+        ReplayBuffer replayBuffer;
         Setting setting;
         std::atomic<bool> stop; //for training thread to stop
         std::atomic<bool> trainLoopStop = false; //for training loop to stop
@@ -386,7 +404,7 @@ namespace mcts {
         std::atomic<int> globalVersion;
         std::mutex mtx;
         std::condition_variable cv;
-        std::atomic<bool> proxyConsumed;
+        std::atomic<bool> endTrain = false;
 
         //for min max
         std::unordered_map<uint64_t, mcts::VisitState> visits;

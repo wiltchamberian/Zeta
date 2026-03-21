@@ -1,5 +1,6 @@
 #pragma once
 #include "tensor.h"
+#include "binary.h"
 
 namespace zeta {
     struct TensorShape {
@@ -58,6 +59,18 @@ namespace zeta {
             CuTensor* tensor = new CuTensor();
             tensor->shape = shape;
             return tensor;
+        }
+        virtual void Save(BinaryStream& stream) const {
+            stream.write<int>(shape.N);
+            stream.write<int>(shape.C);
+            stream.write<int>(shape.H);
+            stream.write<int>(shape.W);
+        }
+        virtual void Load(BinaryStream& stream) {
+            shape.N = stream.read<int>();
+            shape.C = stream.read<int>();
+            shape.H = stream.read<int>();
+            shape.W = stream.read<int>();
         }
 
         CuTensor* ref = nullptr;

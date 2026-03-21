@@ -111,6 +111,18 @@ namespace zeta {
         return r;
     }
 
+    void MaxPool2d::Save(BinaryStream& stream) const {
+        stream.write<int>((int)LayerType::MaxPooling);
+        stream.write<int>(h);
+        stream.write<int>(w);
+    }
+
+    void MaxPool2d::Load(BinaryStream& stream) {
+        stream.read<int>();
+        h = stream.read<int>();
+        w = stream.read<int>();
+    }
+
     void MaxPool2d::FetchResultToCpu() {
 
     }

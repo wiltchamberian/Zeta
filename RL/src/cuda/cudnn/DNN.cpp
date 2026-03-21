@@ -3,12 +3,17 @@
 #include "DnnTensor.h"
 #include <cudnn_backend.h>
 #include <cublasLt.h>
+#include "cu_tool.h"
 
 namespace zeta {
     DNN::DNN() : CuNN() {
-
+        CU_CHECK(cudaStreamCreate(&stream));
+        
         BLAS_CHECK(cublasLtCreate(&ltHandle));
         DNN_CHECK(cudnnCreate(&handle_));
+
+        DNN_CHECK(cudnnSetStream(handle_, stream));
+        //cublasSetStream(ltHandle,stream);
     }
 
     DNN::~DNN() {
@@ -87,5 +92,9 @@ namespace zeta {
         }
         nn->CopyAndBindDeviceMemory(deviceMemory, deviceMemorySize);
         return nn;
+    }
+
+    void DNN::Save(const std::string& path) const {
+        
     }
 }

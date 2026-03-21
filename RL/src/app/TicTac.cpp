@@ -171,6 +171,145 @@ void TicTac::UnHash(uint64_t h)  {
     return;
 }
 
+std::vector<std::shared_ptr<mcts::State>> TicTac::permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies)
+{
+    std::vector<std::shared_ptr<mcts::State>> res(8);
+    policies.resize(8);
+    // 生成4个旋转
+    for (int rot = 0; rot < 4; ++rot) {
+        auto st = std::make_shared<TicTac>();
+        *st = *this;
+        rotateBoard(st->board, rot);
+        policies[rot] = rotatePolicy(policy, rot);
+        res[rot] = st;
+    }
+
+    // 对前4个做水平镜像，生成后4个
+    for (int i = 0; i < 4; ++i) {
+        auto st = std::make_shared<TicTac>();
+        *st = *static_cast<TicTac*>(res[i].get());
+        policies[4 + i] = st->mirrorPolicy(policies[i]);
+        mirrorBoard(st->board);
+        res[4 + i] = st;
+    }
+
+    return res;
+}
+
+// 顺时针旋转 90° rot 次
+void TicTac::rotateBoard(std::array<char, 9>& b, int rot) {
+    for (int r = 0; r < rot; ++r) {
+        char tmp[9];
+        for (int k = 0; k < 9; ++k) {
+            int pos = rotate(k, 1);
+            tmp[pos] = b[k];
+        }
+        for (int k = 0; k < 9; ++k) b[k] = tmp[k];
+    }
+}
+
+//顺时针旋转 90°* rot
+int TicTac::rotate(int pos, int rot) {
+    for (int i = 0; i < rot; ++i) {
+        int x = pos % 3;
+        int y = pos / 3;
+        int newX = 2 - y;
+        int newY = x;
+        pos = newY * 3 + newX;
+    }
+    return pos;
+}
+
+int TicTac::mirror(int pos) {
+    int x = pos % 3;
+    int y = pos / 3;
+    int newX = 2 - x;
+    return y * 3 + newX;
+}
+
+std::pair<int, int> TicTac::actionToPos(int action) {
+    std::pair<int, int> res;
+    int x = action / 3;
+    int y = action % 3;
+    int start = 0;
+    int end = 0;
+    for (int i = 0; i < 9; ++i) {
+        if (board[i] == player) {
+            if (start == x) {
+                start = i;
+                break;
+            }
+            else {
+                start += 1;
+            }
+        }
+    }
+    for (int i = 0; i < 9; ++i) {
+        if (board[i] == 0) {
+            if (end == y) {
+                end = i;
+                break;
+            }
+            else {
+                end += 1;
+            }
+        }
+    }
+    return { start, end };
+}
+
+int TicTac::posToAction(int posStart, int posEnd) {
+    int action = 0;
+    int x = 0;
+    int y = 0;
+    for (int i = posStart - 1; i >= 0; --i) {
+        if (board[i] == player) {
+            x += 1;
+        }
+    }
+    for (int i = posEnd - 1; i >= 0; --i) {
+        if (board[i] == 0) {
+            y += 1;
+        }
+    }
+    return x * 3 + y;
+}
+
+std::vector<double> TicTac::rotatePolicy(const std::vector<double>& policy, int rot) {
+    std::vector<double> newPolicy = policy;
+    for (int action = 0; action < 9; ++action) {
+        std::pair<int, int> pos = actionToPos(action);
+        int newPosStart = rotate(pos.first, rot);
+        int newPosEnd = rotate(pos.second, rot);
+        TicTac abc = *this;
+        abc.rotateBoard(abc.board, rot);
+        int newAction = abc.posToAction(newPosStart, newPosEnd);
+        newPolicy[newAction] = policy[action];
+    }
+    return newPolicy;
+}
+
+std::vector<double> TicTac::mirrorPolicy(const std::vector<double>& policy) {
+    std::vector<double> newPolicy = policy;
+    for (int action = 0; action < 9; ++action) {
+        std::pair<int, int> pos = actionToPos(action);
+        int newPosStart = mirror(pos.first);
+        int newPosEnd = mirror(pos.second);
+        TicTac abc = *this;
+        abc.mirrorBoard(abc.board);
+        int newAction = abc.posToAction(newPosStart, newPosEnd);
+        newPolicy[newAction] = policy[action];
+    }
+    return newPolicy;
+}
+
+// 水平镜像
+void TicTac::mirrorBoard(std::array<char, 9>& b) {
+    for (int y = 0; y < 3; ++y) {
+        std::swap(b[y * 3 + 0], b[y * 3 + 2]);
+    }
+}
+
 bool TicTac::legal(int i, int j) const {
     if (i == 4 || j == 4) {
         return true;
@@ -306,7 +445,7 @@ TicTacProxy::~TicTacProxy() {
 
 }
 
-std::shared_ptr<mcts::State> TicTacProxy::createState() {
+std::shared_ptr<mcts::State> TicTacProxy::createState() const {
     std::shared_ptr<mcts::State> st = std::make_shared<TicTac>();
     st->Init();
     return st;
@@ -341,6 +480,12 @@ CuHead TicTacProxy::predict(const mcts::State* state) {
     }
     return head;
 
+}
+
+CuHead TicTacProxy::predict_s(const mcts::State* state) {
+    std::lock_guard<std::mutex> lock(mutex);
+    CuHead head = predict(state);
+    return head;
 }
 
 void TicTacProxy::setLearningRate(float rate) {
@@ -515,6 +660,10 @@ void TicTacProxy::PrintLoss() const {
     //crossLoss.print_torch_style("cross:");
     std::cout << "loss:" << loss(0) << "mse:" << mseLoss(0) << "cross:" << crossLoss(0);
     std::cout << "lr:" << nn->learningRate << std::endl;
+}
+
+void TicTacProxy::Save(const std::string& path) const {
+    nn->Save(path);
 }
 
 uint64_t Hash(const TicTac& s)

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cassert>
 #include <iostream>
+#include <unordered_map>
 #include <string>
 #include <cuda_runtime.h>
 #include "cu_tool.h"
@@ -14,6 +15,7 @@ namespace zeta {
         , deviceMemory(nullptr)
         , deviceWorkspace(nullptr)
     {
+     
     }
 
     CuNN::~CuNN() {
@@ -385,6 +387,40 @@ namespace zeta {
     }
 
     void CuNN::Save(const std::string& path) const {
+
+    }
+
+    void CuNN::Save(BinaryStream& stream) const {
+        stream.write<int>(tensors.size());
+        std::unordered_map<CuTensor*, size_t> tensorIndex;
+        for (int i = 0; i < tensors.size(); ++i) {
+            tensorIndex.insert(std::make_pair(tensors[i].get(), stream.GetWritePos()));
+            tensors[i]->Save(stream);
+        }
+        stream.write<int>(layers.size());
+        std::vector<size_t> startPositions;
+        std::unordered_map<CuLayer*, size_t> indexMap;
+        for (int i = 0; i < layers.size(); ++i) {
+            startPositions.push_back(stream.GetWritePos());
+            indexMap.insert(std::make_pair(layers[i].get(), stream.GetWritePos()));
+            layers[i]->Save(stream);
+        }
+        for (int i = 0; i < layers.size(); ++i) {
+            stream.write<int>(layers[i]->prevs.size());
+            for (int k = 0; k < layers[i]->prevs.size(); ++k) {
+                stream.write<int>(indexMap[layers[i]->prevs[k]]);
+            }
+            stream.write<int>(layers[i]->nexts.size());
+            for (int k = 0; k < layers[i]->nexts.size(); ++k) {
+                stream.write<int>(indexMap[layers[i]->nexts[k]]);
+            }
+            stream.write<int>(tensorIndex[layers[i]->input]);
+            stream.write<int>(tensorIndex[layers[i]->output]);
+        }
+    }
+
+    void CuNN::Load(BinaryStream& stream) {
+
 
     }
 

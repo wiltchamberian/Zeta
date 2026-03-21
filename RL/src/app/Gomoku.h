@@ -28,8 +28,9 @@ protected:
 class GomokuProxy : public TicTacProxy {
 public:
     using StateType = Gomoku;
-    virtual std::shared_ptr<mcts::State> createState();
+    virtual std::shared_ptr<mcts::State> createState() const override;
     void createNetwork(float learningRate);
     void createNNnetwork(float l, OptimizerType optType);
     virtual Proxy* Clone() const override;
+
 };

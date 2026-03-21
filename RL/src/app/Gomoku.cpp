@@ -171,7 +171,7 @@ void Gomoku::printState() const
 }
 
 
-std::shared_ptr<mcts::State> GomokuProxy::createState() {
+std::shared_ptr<mcts::State> GomokuProxy::createState() const {
     auto state = std::make_shared<Gomoku>();
     state->Init();
     return state;

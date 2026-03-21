@@ -3,6 +3,7 @@
 #include "Activation.h"
 #include "tensor.h"
 #include "cuLayer.h"
+#include <cuda_runtime.h>
 #include <memory>
 #include <functional>
 
@@ -122,7 +123,9 @@ namespace zeta {
 
         size_t GetBatchSize() const;
 
-        void Save(const std::string& path) const;
+        virtual void Save(const std::string& path) const;
+        virtual void Save(BinaryStream& stream) const;
+        virtual void Load(BinaryStream& stream);
 
         void ReleaseDeviceMemory();
 
@@ -165,6 +168,7 @@ namespace zeta {
         size_t workspaceSize = 0;
         CuNNWorkspace ws;
 
-
+    public:
+        cudaStream_t stream = nullptr;
     };
 }

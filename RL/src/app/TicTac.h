@@ -105,6 +105,16 @@ public:
     TicTac* NextState(int action, mcts::NodePool<TicTac>& pool) const;
     uint64_t Hash() const override;
     void UnHash(uint64_t hash) override;
+    std::vector<std::shared_ptr<mcts::State>> permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies);
+
+    void mirrorBoard(std::array<char, 9>&);
+    void rotateBoard(std::array<char, 9>&, int rot);
+    std::vector<double> rotatePolicy(const std::vector<double>& policy, int rot);
+    std::vector<double> mirrorPolicy(const std::vector<double>& policy);
+    static int rotate(int pos, int rot);
+    static int mirror(int pos);
+    std::pair<int, int> actionToPos(int action);
+    int posToAction(int posStart, int posEnd);
     bool is_terminal() const
     {
         if (board[4] == (-player)) {
@@ -197,8 +207,9 @@ public:
     using StateType = TicTac;
     std::shared_ptr<CuNN> nn = nullptr;
 
-    virtual std::shared_ptr<mcts::State> createState();
+    virtual std::shared_ptr<mcts::State> createState() const override;
     CuHead predict(const mcts::State* state);
+    CuHead predict_s(const mcts::State* state) override;
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
     void createNNnetwork(float learningRate, OptimizerType type);
@@ -206,6 +217,7 @@ public:
     void train(const Tensor& states, const Tensor& actions, const Tensor& values);
     virtual Proxy* Clone() const override;
     virtual void PrintLoss() const override;
+    virtual void Save(const std::string& path) const override;
 
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
@@ -225,5 +237,7 @@ public:
     std::unordered_map<uint64_t, TicTac*> mapping;
 
     mcts::NodePool<TicTac> pool;
+
+    std::mutex mutex;
 };
 

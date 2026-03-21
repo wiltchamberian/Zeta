@@ -123,6 +123,7 @@
     <ClCompile Include="src\cpu\Layer.cpp" />
     <ClCompile Include="src\cpu\main.cpp" />
     <ClCompile Include="src\cpu\NeuralNetwork.cpp" />
+    <ClCompile Include="src\cpu\TensorStream.cpp" />
     <ClCompile Include="src\cpu\Vm.cpp" />
     <ClCompile Include="src\cuda\activationLayer.cpp" />
     <ClCompile Include="src\cuda\cudnn\DnnHelp.cpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="src\cpu\matrix.h" />
     <ClInclude Include="src\cpu\NeuralNetwork.h" />
     <ClInclude Include="src\cpu\tensor.h" />
+    <ClInclude Include="src\cpu\TensorStream.h" />
     <ClInclude Include="src\cpu\Vm.h" />
     <ClInclude Include="src\cuda\activationLayer.h" />
     <ClInclude Include="src\cuda\cudnn\DnnConv.h" />

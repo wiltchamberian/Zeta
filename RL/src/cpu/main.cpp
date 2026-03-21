@@ -136,7 +136,7 @@ int main()
     //proxy->nn->c = 0.0001;
 
     //we use supervised learning here, only for TicTacProxy
-    if constexpr (std::is_same_v<ProxyType, TicTacProxy> ) {
+    if constexpr ( false /*std::is_same_v<ProxyType, TicTacProxy>*/ ) {
         int epoch = 20000;
         float lr_min = 0.001f;
         float lr_max = 0.1f;
@@ -162,13 +162,13 @@ int main()
     }
     
     mcts::Setting setting;
-    setting.simulationCount = 200;
-    setting.batchSize = 128;
-    setting.miniBatchSize = 128;
+    setting.simulationCount = 120;
+    setting.batchSize = 256;
+    setting.miniBatchSize = 256;
     setting.trainStepsPerEpisode = 100;
-    setting.num_episodes = 50;
+    setting.num_episodes = 16;
     setting.sample_episodes = 20;
-    setting.maxChessLength = 50; // GOMOKU_DIM;
+    setting.maxChessLength = 50;
     setting.checkpointCount = 1;
     setting.useDirichletNoise = false;
 
@@ -179,30 +179,48 @@ int main()
 
     mcts::Mcts mcts;
     mcts.setting = setting;
-
+    mcts.replayBuffer.setMaxSize(5000);
 
     mcts.mctsProxy = proxy;
 
-    if constexpr (!std::is_same_v<ProxyType, TicTacProxy>) {
-        mcts.trainProxy = proxy->Clone();
-        mcts.train();
-    }
+    mcts.trainProxy = proxy->Clone();
+    mcts.train();
    
+    enum FIGHT_TYPE {
+        HUMAN_VS_AI,
+        AI_VS_AI
+    };
+    FIGHT_TYPE fightType;
     int d[64];
     bool human = true;
     std::shared_ptr<mcts::State> state = std::make_shared<ProxyType::StateType>();
     state->Init();
-    std::cout << "human first? (1:human 0:AI)\n";
+
+    std::cout << "human_vs_ai:0 or ai_vs_ai:1 ?\n";
     std::cin >> d[0];
-    if (d[0] > 0) {
-        std::cout << "huamn first!\n";
-        human = true;
+    if (d[0] == 0) {
+        fightType = HUMAN_VS_AI;
     }
     else {
-        std::cout << "Ai first!\n";
-        human = false;
-        state->player = -1;
+        fightType = AI_VS_AI;
     }
+    if (fightType == HUMAN_VS_AI) {
+        std::cout << "human first? (1:human 0:AI)\n";
+        std::cin >> d[0];
+        if (d[0] > 0) {
+            std::cout << "huamn first!\n";
+            human = true;
+        }
+        else {
+            std::cout << "Ai first!\n";
+            human = false;
+            state->player = -1;
+        }
+    }
+    else {
+        human = true;
+    }
+    
     state->printState();
     //start play game
     while (true) {
@@ -231,26 +249,35 @@ int main()
             state->printState();
         }
         if (human) {
-            std::cout << "please choose your action!\n";
-            auto legals = state->legalActions();
-            while (true) {
-                std::cin >> d[0];
-                bool bingo = false;
-                for (int k = 0; k < legals.size(); ++k) {
-                    if (d[0] == legals[k]) {
-                        bingo = true;
+            if (fightType == HUMAN_VS_AI) {
+                std::cout << "please choose your action!\n";
+                auto legals = state->legalActions();
+                while (true) {
+                    std::cin >> d[0];
+                    bool bingo = false;
+                    for (int k = 0; k < legals.size(); ++k) {
+                        if (d[0] == legals[k]) {
+                            bingo = true;
+                            break;
+                        }
+                    }
+                    if (bingo) {
                         break;
                     }
                 }
-                if (bingo) {
-                    break;
-                }
+
+                state = state->next_state(d[0]);
+                state->printState();
+                human = !human;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            else if(fightType == AI_VS_AI){
+                state = mcts.play(state);
+                state->printState();
+                human = !human;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
             }
             
-            state = state->next_state(d[0]);
-            state->printState();
-            human = !human;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         else {
             state = mcts.play(state);

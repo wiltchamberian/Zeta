@@ -21,7 +21,10 @@ namespace zeta {
         virtual void InitInput(const Tensor& tensor) override;
         virtual void Connect(CuLayer* l1, CuLayer* l2) override;
         virtual CuNN* Clone() const override;
+        virtual void Save(const std::string& path) const override;
         cudnnHandle_t handle_ = nullptr;
         cublasLtContext* ltHandle = nullptr;
+
+        
     };
 }

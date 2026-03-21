@@ -151,6 +151,7 @@ namespace zeta {
     template<typename T = float>
     class TensorT {
     public:
+        using ElementType = T;
         static const int end = 0;
         // -------------------
         // 构造
