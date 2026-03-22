@@ -7,6 +7,10 @@
 #include <cuda_runtime.h>
 #include "cu_tool.h"
 #include "kernels.h"
+#include "activationLayer.h"
+#include "maxpool.h"
+#include "reluLayer.h"
+#include "tanhLayer.h"
 
 namespace zeta {
     CuNN::CuNN(float lr)
@@ -39,6 +43,84 @@ namespace zeta {
             });
         AllocDeviceMemory();
         return shape;
+    }
+
+    CuLayer* CuNN::CreateLayerBy(LayerType tp) {
+        CuLayer* layer = nullptr;
+
+        switch (tp) {
+        case LayerType::Basic:
+            assert(false);
+            break;
+
+        case LayerType::Fully:
+            layer = CreateLayer<Linear>();
+            break;
+
+        case LayerType::Conv:
+            layer = CreateLayer<Conv2d>();
+            break;
+
+            // ===== Activation 系列 =====
+        case LayerType::Activation:
+            layer = CreateLayer<ActivationLayer>();
+            break;
+
+        case LayerType::Act_Relu:
+            layer = CreateLayer<CuReluLayer>();
+            break;
+
+        case LayerType::Act_Tanh:
+            layer = CreateLayer<CuTanhLayer>();
+            break;
+
+        case LayerType::Act_Sigmoid:
+            layer = CreateLayer<ActivationLayer>();  // 如果你没有专门类
+            break;
+
+        case LayerType::Act_ClippedRelu:
+            layer = CreateLayer<ActivationLayer>();
+            break;
+
+        case LayerType::Act_Elu:
+            layer = CreateLayer<ActivationLayer>();
+            break;
+
+        case LayerType::Act_Identity:
+            layer = CreateLayer<ActivationLayer>();
+            break;
+
+        case LayerType::Act_SWISH:
+            layer = CreateLayer<ActivationLayer>();
+            break;
+
+            // ===== Loss =====
+        case LayerType::Mse:
+            layer = CreateLayer<CuMseLayer>();
+            break;
+
+        case LayerType::Softmax:
+            layer = CreateLayer<CuSoftmaxCrossEntropyLayer>();
+            break;
+
+            // ===== 结构层 =====
+        case LayerType::Add:
+            layer = CreateLayer<CuAddLayer>();
+            break;
+
+        case LayerType::Output:
+            layer = CreateLayer<OutputLayer>();
+            break;
+
+        case LayerType::MaxPooling:
+            layer = CreateLayer<MaxPool2d>();
+            break;
+
+        default:
+            throw std::runtime_error("Unknown LayerType");
+        }
+
+        return layer;
     }
 
     void CuNN::SetOptimizer(OptimizerType opt) {
@@ -391,18 +473,24 @@ namespace zeta {
     }
 
     void CuNN::Save(BinaryStream& stream) const {
+        stream.write<int>((int)NNType::CUNN);
+        stream.write<float>(learningRate);
+        stream.write<int>((int)optimizerType);
+        stream.write<float>(c);
+
         stream.write<int>(tensors.size());
         std::unordered_map<CuTensor*, size_t> tensorIndex;
         for (int i = 0; i < tensors.size(); ++i) {
-            tensorIndex.insert(std::make_pair(tensors[i].get(), stream.GetWritePos()));
+            tensorIndex.insert(std::make_pair(tensors[i].get(), i));
             tensors[i]->Save(stream);
         }
+        tensorIndex.insert(std::make_pair(nullptr, -1));
         stream.write<int>(layers.size());
-        std::vector<size_t> startPositions;
+
         std::unordered_map<CuLayer*, size_t> indexMap;
+        indexMap.insert(std::make_pair(nullptr, -1));
         for (int i = 0; i < layers.size(); ++i) {
-            startPositions.push_back(stream.GetWritePos());
-            indexMap.insert(std::make_pair(layers[i].get(), stream.GetWritePos()));
+            indexMap.insert(std::make_pair(layers[i].get(), i));
             layers[i]->Save(stream);
         }
         for (int i = 0; i < layers.size(); ++i) {
@@ -420,8 +508,70 @@ namespace zeta {
     }
 
     void CuNN::Load(BinaryStream& stream) {
+        NNType nnType = (NNType(stream.peek<int>()));
+        if (nnType != NNType::CUNN) {
+            std::cout << "NNType not match!\n";
+            return;
+        }
+        stream.read<int>();
 
+        learningRate = stream.read<float>();
+        optimizerType = (OptimizerType)stream.read<int>();
+        c = stream.read<float>();
 
+        tensors.clear();
+        layers.clear();
+
+        // =========================
+        // 1. 读取 Tensor
+        // =========================
+        int tensorCount = stream.read<int>();
+        for (int i = 0; i < tensorCount; ++i) {
+            CuTensor* tensor = CreateTensor<CuTensor>();
+            tensor->Load(stream);
+        }
+
+        // =========================
+        // 2. 读取 Layer
+        // =========================
+        int layerCount = stream.read<int>();
+        for (int i = 0; i < layerCount; ++i) {
+            LayerType lt = (LayerType)stream.peek<int>();
+            CuLayer* layer = CreateLayerBy(lt);
+            layer->Load(stream);
+        }
+
+        // =========================
+        // 3. 重建连接关系
+        // =========================
+        for (int i = 0; i < layerCount; ++i) {
+
+            // prevs
+            int prevCount = stream.read<int>();
+            layers[i]->prevs.resize(prevCount);
+            for (int k = 0; k < prevCount; ++k) {
+                int idx = stream.read<int>();
+                layers[i]->prevs[k] = (idx == -1) ? nullptr : layers[idx].get();
+            }
+
+            // nexts
+            int nextCount = stream.read<int>();
+            layers[i]->nexts.resize(nextCount);
+            for (int k = 0; k < nextCount; ++k) {
+                int idx = stream.read<int>();
+                layers[i]->nexts[k] = (idx == -1) ? nullptr : layers[idx].get();
+            }
+
+            // input tensor
+            int inIdx = stream.read<int>();
+            layers[i]->input = (inIdx == -1) ? nullptr : tensors[inIdx].get();
+
+            // output tensor
+            int outIdx = stream.read<int>();
+            layers[i]->output = (outIdx == -1) ? nullptr : tensors[outIdx].get();
+        }
+
+        AllocDeviceMemory();
     }
 
     void CuNN::ReleaseDeviceMemory() {
@@ -511,6 +661,14 @@ namespace zeta {
             assert(false);
         }
         return ts;
+    }
+
+    std::vector<CuLayer*> CuNN::GetLayers() const {
+        std::vector<CuLayer*> vec;
+        for (int i = 0; i < layers.size(); ++i) {
+            vec.push_back(layers[i].get());
+        }
+        return vec;
     }
 
     void CuNN::Print() {

@@ -666,6 +666,40 @@ void TicTacProxy::Save(const std::string& path) const {
     nn->Save(path);
 }
 
+void TicTacProxy::Save(BinaryStream& stream) const {
+    nn->Save(stream);
+}
+
+void TicTacProxy::Load(BinaryStream& stream) {
+    NNType nnType = (NNType)(stream.peek<int>());
+    if (nnType == NNType::DNN) {
+        nn = std::make_shared<DNN>();
+    }
+    else if (nnType == NNType::CUNN) {
+        nn = std::make_shared<CuNN>();
+    }
+    else {
+        assert(false);
+        return;
+    }
+    nn->Load(stream);
+    root = nullptr;
+    std::vector<CuLayer*> layers = nn->GetLayers();
+    if (layers.empty()) {
+        std::cout << "empty layers!\n";
+        return;
+    }
+    root = layers[0];
+    for (int i = 0; i < layers.size(); ++i) {
+        if (layers[i]->layerType == LayerType::Mse) {
+            valueHead = dynamic_cast<CuMseLayer*>(layers[i]);
+        }
+        else if (layers[i]->layerType == LayerType::Softmax) {
+            policyHead = dynamic_cast<DnnSoftmax*>(layers[i]);
+        }
+    }
+}
+
 uint64_t Hash(const TicTac& s)
 {
     uint64_t h = 0;

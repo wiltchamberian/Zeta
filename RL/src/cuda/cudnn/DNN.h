@@ -18,10 +18,13 @@ namespace zeta {
             res->dnn = this;
             return res;
         }
+        virtual CuLayer* CreateLayerBy(LayerType tp) override;
         virtual void InitInput(const Tensor& tensor) override;
         virtual void Connect(CuLayer* l1, CuLayer* l2) override;
         virtual CuNN* Clone() const override;
         virtual void Save(const std::string& path) const override;
+        virtual void Save(BinaryStream& stream) const override;
+        virtual void Load(BinaryStream& stream) override;
         cudnnHandle_t handle_ = nullptr;
         cublasLtContext* ltHandle = nullptr;
 

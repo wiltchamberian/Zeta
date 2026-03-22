@@ -218,7 +218,8 @@ public:
     virtual Proxy* Clone() const override;
     virtual void PrintLoss() const override;
     virtual void Save(const std::string& path) const override;
-
+    virtual void Save(BinaryStream& stream) const override;
+    virtual void Load(BinaryStream& stream) override;
     CuLayer* root = nullptr;
     CuSoftmaxCrossEntropyLayer* policyHead = nullptr;
     CuMseLayer* valueHead = nullptr;

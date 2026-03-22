@@ -102,6 +102,8 @@ namespace mcts {
         virtual void train(const std::vector<mcts::Entry>& entries) {}
         virtual void train(const Tensor& states, const Tensor& actions, const Tensor& values) {}
         virtual Proxy* Clone() const = 0;
+        virtual void Save(BinaryStream& stream) const {}
+        virtual void Load(BinaryStream& stream) {}
         virtual void PrintLoss() const {}
         int totalActionCount = 0;
         int version = 0;
@@ -356,6 +358,8 @@ namespace mcts {
         int maxChessLength = 20;
         float dirichletNoise = 0.03f;
         float epsilon = 0.25f;
+        float gamma = 1.0f;
+        int door = INT_MAX;
         
         int checkpointCount = 50;
         bool useDirichletNoise = true;

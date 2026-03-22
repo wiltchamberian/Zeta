@@ -20,6 +20,7 @@ namespace zeta {
         void wgrad();
         void bgrad();
         CuLayer* Clone() const override;
+        virtual void Load(BinaryStream& stream) override;
 
         void init(int K, int C, int R, int S);
         //protected:

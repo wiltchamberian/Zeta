@@ -136,7 +136,7 @@ int main()
     //proxy->nn->c = 0.0001;
 
     //we use supervised learning here, only for TicTacProxy
-    if constexpr ( false /*std::is_same_v<ProxyType, TicTacProxy>*/ ) {
+    if constexpr (false /*std::is_same_v<ProxyType, TicTacProxy>*/) {
         int epoch = 20000;
         float lr_min = 0.001f;
         float lr_max = 0.1f;
@@ -159,7 +159,18 @@ int main()
             }
 
         }
+        BinaryStream stream1;
+        proxy->Save(stream1);
+        stream1.saveToFile("ai1.bin");
     }
+
+    mcts::Mcts ai1;
+    ai1.mctsProxy = std::make_shared<ProxyType>();
+    BinaryStream newStream1;
+    newStream1.loadFromFile("ai1.bin");
+    ai1.mctsProxy->Load(newStream1);
+    
+
     
     mcts::Setting setting;
     setting.simulationCount = 120;
@@ -171,6 +182,8 @@ int main()
     setting.maxChessLength = 50;
     setting.checkpointCount = 1;
     setting.useDirichletNoise = false;
+    setting.gamma = 1.0f;
+    setting.door = 10;
 
     setting.targetTemperature = 0.1;
     setting.explorationCount = 10; // minus means not use
@@ -181,10 +194,21 @@ int main()
     mcts.setting = setting;
     mcts.replayBuffer.setMaxSize(5000);
 
-    mcts.mctsProxy = proxy;
+    
+    //BinaryStream newStream;
+    //newStream.loadFromFile("proxy_file.bin");
+    //auto newProxy = std::make_shared<ProxyType>();
+    //newProxy->Load(newStream);
+    //mcts.mctsProxy = newProxy;
 
-    mcts.trainProxy = proxy->Clone();
+    auto newProxy = std::make_shared<ProxyType>();
+    newProxy->createNNnetwork(0.01f, SGD);
+    mcts.mctsProxy = newProxy;
+    mcts.trainProxy = newProxy->Clone();
     mcts.train();
+    BinaryStream stream;
+    mcts.mctsProxy->Save(stream);
+    stream.saveToFile("proxy_file.bin");
    
     enum FIGHT_TYPE {
         HUMAN_VS_AI,
@@ -272,7 +296,7 @@ int main()
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
             else if(fightType == AI_VS_AI){
-                state = mcts.play(state);
+                state = ai1.play(state);
                 state->printState();
                 human = !human;
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -283,6 +307,9 @@ int main()
             state = mcts.play(state);
             state->printState();
             human = !human;
+            if (fightType == AI_VS_AI) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
         }
 
     }

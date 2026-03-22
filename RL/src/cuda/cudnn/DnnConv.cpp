@@ -207,6 +207,11 @@ namespace zeta {
         return layer;
     }
 
+    void DnnConv::Load(BinaryStream& stream) {
+        Conv2d::Load(stream);
+        init(weightsShape.N, weightsShape.C, weightsShape.H, weightsShape.W);
+    }
+
     void DnnConv::init(int K, int C, int R, int S) {
         weightsShape.N = K;
         weightsShape.C = C;

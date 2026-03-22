@@ -75,13 +75,25 @@ namespace mcts{
 
 
     int Mcts::backTrace(Node* node, float value) const {
+        float mul = 1;
+        int loopTime = 0;
         while (node->parent != nullptr) {
             value = -value;
-            node->parentEdge->W += value;
+            
+            
+            float v = loopTime > setting.door ? 0 : ( value * mul);
+
+            node->parentEdge->W += v;
+
+
             node->parentEdge->visit_count += 1;
 
             node->parent->subTreeDepth = std::max(node->parent->subTreeDepth, node->subTreeDepth + 1);
             node = node->parent;
+
+            mul = mul * setting.gamma;
+
+            loopTime += 1;
         }
         return node->subTreeDepth;
     }

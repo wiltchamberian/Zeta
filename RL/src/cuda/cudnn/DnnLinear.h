@@ -21,6 +21,7 @@ namespace zeta {
         void BindWorkspace(void* ptr) override;
         void SetNN(CuNN* nn) override;
         CuLayer* Clone() const override;
+        virtual void Load(BinaryStream& stream) override;
         void init();
         void selectAlgo(cublasLtMatmulDesc_t opDesc,
             cublasLtMatrixLayout_t A,

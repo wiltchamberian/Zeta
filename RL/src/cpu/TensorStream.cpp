@@ -6,9 +6,8 @@ namespace zeta {
             if (tensor.is_continuous()) {
                 auto d = tensor.start();
                 int siz = tensor.ElementCount();
-                for (int i = 0; i < siz; ++i) {
-                    stream.writeBytes(d, siz * sizeof(Tensor::ElementType));
-                }
+                stream.writeBytes(d, siz * sizeof(Tensor::ElementType));
+                
             }
             else {
                 assert(false);

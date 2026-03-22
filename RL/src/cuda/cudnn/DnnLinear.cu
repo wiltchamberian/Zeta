@@ -293,4 +293,9 @@ namespace zeta {
 
         return abc;
     }
+
+    void DnnLinear::Load(BinaryStream& stream) {
+        Linear::Load(stream);
+        init();
+    }
 }

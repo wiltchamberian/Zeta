@@ -16,6 +16,12 @@ namespace zeta {
         Adam,
     };
 
+    enum class NNType {
+        NN,
+        CUNN,
+        DNN
+    };
+
     struct CuNNWorkspace {
         void Clear() {
             x = nullptr;
@@ -48,6 +54,8 @@ namespace zeta {
         float beta2_t = 1.0f;
         float epsilon = 1e-8;
         int t = 0;
+        int batchSize = 0;
+        float c = 0.0f; //regularization parameter
 
         CuNN(float lr = 1.0);
 
@@ -71,6 +79,8 @@ namespace zeta {
             T* res = static_cast<T*>(tensors.back().get());
             return res;
         }
+
+        virtual CuLayer* CreateLayerBy(LayerType tp);
 
         void SetOptimizer(OptimizerType opt);
 
@@ -135,14 +145,13 @@ namespace zeta {
 
         void CleanRefs(); //use with clone
 
-        int batchSize = 0;
-        float c = 0.0f; //regularization parameter
-
         TensorShape getTensorShape(const Tensor& tensor) const;
         void* GetDeviceMemory() { return deviceMemory; }
         void* GetWorkspace() { return deviceWorkspace; }
         int GetDeiviceSize() { return deviceMemorySize; }
         int GetWorkspaceSize() { return workspaceSize; }
+
+        std::vector<CuLayer*> GetLayers() const;
     protected:
         //backup of input and label y
         //Tensor input;

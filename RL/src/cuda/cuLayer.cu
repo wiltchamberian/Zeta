@@ -418,15 +418,15 @@ void Linear::Save(std::fstream fs) {
 
 void Linear::Save(BinaryStream& stream) const {
     Tensor theWeights;
-    theWeights.zeros(dl.b_size, dl.in_dim);
+    theWeights.zeros(out_dim, in_dim);
     Tensor theBias;
-    theBias.zeros(dl.b_size);
+    theBias.zeros(out_dim);
     CU_CHECK(cudaMemcpy(theWeights.data(), dl.weights, dl.w_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
-    CU_CHECK(cudaMemcpy(theBias.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+    CU_CHECK(cudaMemcpy(theBias.data(), dl.bias, out_dim * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
     
     stream.write<int>((int)LayerType::Fully);
-    stream.write<int>(dl.in_dim);
-    stream.write<int>(dl.b_size);
+    stream.write<int>(in_dim);
+    stream.write<int>(out_dim);
     TensorStream::Save(theWeights, stream);
     TensorStream::Save(theBias, stream);
 }
@@ -435,6 +435,8 @@ void Linear::Load(BinaryStream& stream) {
     stream.read<int>();
     dl.in_dim = stream.read<int>();
     dl.b_size = stream.read<int>();
+    out_dim = dl.b_size;
+    in_dim = dl.in_dim;
     dl.w_size = dl.in_dim * dl.b_size;
     weights = TensorStream::Load(dl.in_dim, dl.b_size, stream);
     b = TensorStream::Load(dl.b_size, stream);
@@ -648,22 +650,22 @@ void CuSoftmaxCrossEntropyLayer::PrintActivation() {
 
 /************************************************/
 CuMseLayer::CuMseLayer() {
-    layerType == LayerType::Mse;
+    layerType = LayerType::Mse;
 }
 
 CuMseLayer::CuMseLayer(int C) {
-    layerType == LayerType::Mse;
+    layerType = LayerType::Mse;
     label = Tensor(C);
 }
 
 CuMseLayer::CuMseLayer(int C, int H) {
-    layerType == LayerType::Mse;
+    layerType = LayerType::Mse;
     label = Tensor(C, H);
 }
 
 CuMseLayer::CuMseLayer(int C, int R, int S)
 {
-    layerType == LayerType::Mse;
+    layerType = LayerType::Mse;
     label = Tensor(C, R, S);
 }
 
@@ -921,7 +923,7 @@ void Conv2d::BindDevice(void* ptr) {
 
 void Conv2d::HostToDevice() {
     Tensor w = weights.contiguous();
-    if (w.data()) {
+    if (w.data() && dl.weights) {
         CU_CHECK(cudaMemcpy(
             dl.weights,
             w.data(),
@@ -930,7 +932,7 @@ void Conv2d::HostToDevice() {
         ));
     }
     Tensor bias = b.contiguous();
-    if (b.data()) {
+    if (b.data() && dl.bias) {
         CU_CHECK(cudaMemcpy(
             dl.bias,
             bias.data(),
@@ -1023,6 +1025,11 @@ void Conv2d::Save(BinaryStream& stream) const {
     CU_CHECK(cudaMemcpy(theBias.data(), dl.bias, dl.b_size * sizeof(float), cudaMemcpyKind::cudaMemcpyDeviceToHost));
 
     stream.write<int>((int)LayerType::Conv);
+    stream.write<int>(padH);
+    stream.write<int>(padW);
+    stream.write<int>(strideH);
+    stream.write<int>(strideW);
+
     stream.write<int>(weightsShape.N);
     stream.write<int>(weightsShape.C);
     stream.write<int>(weightsShape.H);
@@ -1032,7 +1039,14 @@ void Conv2d::Save(BinaryStream& stream) const {
 }
 
 void Conv2d::Load(BinaryStream& stream) {
-    stream.read<int>();
+    LayerType lt = (LayerType)stream.read<int>();
+    if (lt != LayerType::Conv) {
+        assert(false);
+    }
+    padH = stream.read<int>();
+    padW = stream.read<int>();
+    strideH = stream.read<int>();
+    strideW = stream.read<int>();
     weightsShape.N = stream.read<int>();
     weightsShape.C = stream.read<int>();
     weightsShape.H = stream.read<int>();
