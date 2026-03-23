@@ -133,3 +133,7 @@ void test_dnn_linear() {
 - Support training but it is very slow.
 - add if constexpr to simplify code modifying
 
+## [v0.2] - Add Q Learning Algorithm 
+- Use Q learning to achieve perfect AI for Gomoku (3*3) (TicTacToe) and Sliding Tic-Tac-Toe in about 4 seconds.
+- No neural network used.
+

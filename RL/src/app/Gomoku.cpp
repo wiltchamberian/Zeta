@@ -3,10 +3,28 @@
 #include "Gomoku.h"
 #include "DnnHead.h"
 
+static uint64_t zobrist[GOMOKU_DIM][3];
+static bool zobrist_initialized = false;
+void InitZobrist() {
+    if (zobrist_initialized) return;
+
+    std::mt19937_64 rng(123456); // 固定种子（保证可复现）
+
+    for (int i = 0; i < GOMOKU_DIM; i++) {
+        for (int j = 0; j < 2; j++) {
+            zobrist[i][j] = rng();
+        }
+    }
+
+    zobrist_initialized = true;
+}
+
 void Gomoku::Init() {
     for (int i = 0; i < GOMOKU_DIM; ++i) {
         board[i] = 0;
     }
+    InitZobrist();
+    currentHash = 0;
 }
 
 Tensor Gomoku::Encode() const {
@@ -47,13 +65,18 @@ std::vector<int> Gomoku::legalActions() const {
     return actions;
 }
 
-std::shared_ptr < mcts::State > Gomoku::next_state(int action) const {
+std::shared_ptr < State > Gomoku::next_state(int action) const {
     std::shared_ptr <Gomoku> st = std::make_shared<Gomoku>();
     *st = *this;
     st->board[action] = player;
     st->player = -st->player;
     st->depth += 1;
     st->lastAction = action;
+
+    int piece = (player == 1) ? 0 : 1;
+    st->currentHash = this->currentHash;
+    st->currentHash ^= zobrist[action][piece];
+
     return st;
 }
 
@@ -77,7 +100,7 @@ bool Gomoku::check_win(int x, int y) const
         int count = 1;
 
         // 正方向
-        for (int step = 1; step < 5; ++step)
+        for (int step = 1; step < GOMOKU_WIN; ++step)
         {
             int nx = x + dx * step;
             int ny = y + dy * step;
@@ -89,7 +112,7 @@ bool Gomoku::check_win(int x, int y) const
         }
 
         // 反方向
-        for (int step = 1; step < 5; ++step)
+        for (int step = 1; step < GOMOKU_WIN; ++step)
         {
             int nx = x - dx * step;
             int ny = y - dy * step;
@@ -100,7 +123,7 @@ bool Gomoku::check_win(int x, int y) const
             count++;
         }
 
-        if (count >= 5)
+        if (count >= GOMOKU_WIN)
             return true;
     }
 
@@ -148,6 +171,32 @@ int Gomoku::winner() const
     return 0; // 没人赢
 }
 
+uint64_t Gomoku::Hash() const {
+    return currentHash;
+    //uint64_t h = 0;
+
+    //for (int i = 0; i < GOMOKU_DIM; i++) {
+    //    char c = board[i];
+    //    int piece = 0;
+    //    if (c == 1) {
+    //        piece = 0;
+    //    }
+    //    else {
+    //        piece = 1;
+    //    }
+    //    if (piece != 0) {
+    //        h ^= zobrist[i][piece];
+    //    }
+    //}
+
+    //return h;
+}
+
+void Gomoku::UnHash(uint64_t hash) {
+
+    assert(false);
+}
+
 char Gomoku::character(int p) const {
     static char chs[3] = { 'O','.' ,'X' };
     return chs[p + 1];
@@ -171,7 +220,7 @@ void Gomoku::printState() const
 }
 
 
-std::shared_ptr<mcts::State> GomokuProxy::createState() const {
+std::shared_ptr<State> GomokuProxy::createState() const {
     auto state = std::make_shared<Gomoku>();
     state->Init();
     return state;
@@ -262,7 +311,7 @@ void GomokuProxy::createNNnetwork(float l, OptimizerType optType) {
     nn->optimizerType = optType;
 }
 
-mcts::Proxy* GomokuProxy::Clone() const {
+Proxy* GomokuProxy::Clone() const {
     GomokuProxy* proxy = new GomokuProxy();
     proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());

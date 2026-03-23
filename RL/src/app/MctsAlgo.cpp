@@ -7,73 +7,7 @@
 #include <array>
 
 namespace mcts{
-    std::vector<double> Node::getPolicyDistribution(double temperature, int totalActionCount) {
-        std::vector<double> distribution(totalActionCount, 0);
-        constexpr double alpha = 0.03f;  //eta ~ Dir(alpha)
-        constexpr double epsilon = 0.25f;
-        if (temperature == 1) {
-            double total = 0;
-            for (int i = 0; i < edges.size(); ++i) {
-                double v = edges[i]->visit_count;
-                distribution[edges[i]->action] = v;
-                total += v;
-            }
-            if (total > 0) {
-                for (int i = 0; i < distribution.size(); ++i) {
-                    distribution[i] /= total;
-                }
-            }
-            return distribution;
-        }
-        else if (temperature == 0) {
-            double total = 0;
-            double max = -10000;
-            int id = 0;
-            for (int i = 0; i < edges.size(); ++i) {
-                double v = edges[i]->visit_count;
-                if (v > max) {
-                    max = v;
-                    id = i;
-                }
-            }
-            distribution[edges[id]->action] = 1;
-            return distribution;
-        }
-        else {
-            double total = 0;
-            for (int i = 0; i < edges.size(); ++i) {
-                double v = std::pow(edges[i]->visit_count, 1 / temperature);
-                distribution[edges[i]->action] = v;
-                total += v;
-            }
-            if (total > 0) {
-                for (int i = 0; i < distribution.size(); ++i) {
-                    distribution[i] /= total;
-                }
-            }
-            return distribution;
-        }
-    }
-
-    std::vector<Entry> ReplayBuffer::sample(size_t batch_size)
-    {
-        std::vector<Entry> batch;
-        batch.reserve(batch_size);
-
-        std::uniform_int_distribution<size_t> dist(0, entries.size() - 1);
-
-        for (size_t i = 0; i < batch_size; ++i)
-        {
-            batch.push_back(entries[dist(gen)]);
-        }
-        return batch;
-    }
-
-    void ReplayBuffer::shuffle() {
-        std::shuffle(entries.begin(), entries.end(),gen);
-    }
-
-
+    
     int Mcts::backTrace(Node* node, float value) const {
         float mul = 1;
         int loopTime = 0;
@@ -119,7 +53,7 @@ namespace mcts{
         backTrace(cur, head.value);
     }
 
-    void Mcts::simulate(Node* root, Proxy* proxy, NodePool<mcts::Node>* pool) {
+    void Mcts::simulate(Node* root, Proxy* proxy, NodePool<Node>* pool) {
         Node* cur = root;
         while (true) {
             if (cur->state->is_terminal()) {
@@ -205,10 +139,10 @@ namespace mcts{
         }
     }
 
-    int Mcts::selfPlay(ReplayBuffer& replay, std::shared_ptr<Proxy> proxy, NodePool<mcts::Node>* pool) {
+    int Mcts::selfPlay(ReplayBuffer& replay, std::shared_ptr<Proxy> proxy, NodePool<Node>* pool) {
         std::vector<Tensor> labels;
         std::vector<std::shared_ptr<State>> states;
-
+      
         Node* cur = pool->Alloc();
 
         cur->state = proxy->createState();
@@ -247,7 +181,7 @@ namespace mcts{
             
 
             std::vector<std::vector<double>> policies;
-            std::vector<std::shared_ptr<mcts::State>> newStates = cur->state->permuteStates(policy_real, policies);
+            std::vector<std::shared_ptr<State>> newStates = cur->state->permuteStates(policy_real, policies);
             if (!newStates.empty()) {
                 for (int i = 0; i < newStates.size(); ++i) {
                     states.push_back(newStates[i]);
@@ -265,7 +199,7 @@ namespace mcts{
             
 
             bool bingo = false;
-            mcts::Node* child = nullptr;
+            Node* child = nullptr;
             for (int i = 0; i < cur->edges.size(); ++i) {
                 if (cur->edges[i]->action == selectedAction) {
                     child = cur->children[i];
@@ -371,7 +305,7 @@ namespace mcts{
         int maxLength = 0;
         ReplayBuffer tempBuffers[THREAD_NUM];
         //run four episode at once...
-        NodePool<mcts::Node> pool[THREAD_NUM];
+        NodePool<Node> pool[THREAD_NUM];
         std::array<std::shared_ptr<Proxy>, THREAD_NUM> proxies;
         proxies[0] = proxy;
         for (int i = 1; i < THREAD_NUM; ++i) {

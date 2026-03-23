@@ -59,7 +59,7 @@ std::vector<int> ThreeTacState::legalActions() const {
     return actions;
 }
 
-std::shared_ptr < mcts::State > ThreeTacState::next_state(int action) const {
+std::shared_ptr <State > ThreeTacState::next_state(int action) const {
     std::shared_ptr <ThreeTacState> st = std::make_shared<ThreeTacState>();
     *st = *this;
     st->board[action] = player;
@@ -177,7 +177,7 @@ void ThreeTacState::printState() const {
 }
 
 
-std::shared_ptr<mcts::State> ThreeTacProxy::createState() const {
+std::shared_ptr<State> ThreeTacProxy::createState() const {
     auto state = std::make_shared<ThreeTacState>();
     state->Init();
     return state;
@@ -212,7 +212,7 @@ void ThreeTacProxy::createNetwork(float learningRate) {
     nn->AllocDeviceMemory();
 }
 
-mcts::Proxy* ThreeTacProxy::Clone() const {
+Proxy* ThreeTacProxy::Clone() const {
     ThreeTacProxy* proxy = new ThreeTacProxy();
     proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());

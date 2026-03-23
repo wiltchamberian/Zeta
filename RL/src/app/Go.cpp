@@ -53,7 +53,7 @@ std::vector<int> Go::legalActions() const {
     return res;
 }
 
-std::shared_ptr<mcts::State> Go::next_state(int action) const {
+std::shared_ptr<State> Go::next_state(int action) const {
 
     auto st = std::make_shared<Go>(*this); // ¸´ÖÆµ±Ç°×´Ì¬
     if (action == BOARD_SIZE) {
@@ -325,7 +325,7 @@ void Go::printState() const {
 
 
 
-std::shared_ptr<mcts::State> GoProxy::createState() const {
+std::shared_ptr<State> GoProxy::createState() const {
     std::shared_ptr<Go> res = std::make_shared<Go>();
     res->Init();
     return res;
@@ -393,7 +393,7 @@ void GoProxy::createNetwork(float learningRate) {
     nn->AllocDeviceMemory();
 }
 
-mcts::Proxy* GoProxy::Clone() const {
+Proxy* GoProxy::Clone() const {
     GoProxy* proxy = new GoProxy();
     proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());

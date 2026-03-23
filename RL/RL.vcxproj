@@ -110,12 +110,15 @@
     <CudaCompile Include="src\test\test.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\app\Agent.cpp" />
     <ClCompile Include="src\app\Go.cpp" />
     <ClCompile Include="src\app\Gomoku.cpp" />
+    <ClCompile Include="src\app\Help.cpp" />
     <ClCompile Include="src\app\LeNet.cpp" />
     <ClCompile Include="src\app\mcts.cpp" />
     <ClCompile Include="src\app\MctsAlgo.cpp" />
     <ClCompile Include="src\app\mnist.cpp" />
+    <ClCompile Include="src\app\QLearning.cpp" />
     <ClCompile Include="src\app\ThreeTac.cpp" />
     <ClCompile Include="src\app\TicTac.cpp" />
     <ClCompile Include="src\cpu\Activation.cpp" />
@@ -136,12 +139,15 @@
     <ClCompile Include="src\test\vm_test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\app\Agent.h" />
     <ClInclude Include="src\app\Go.h" />
     <ClInclude Include="src\app\Gomoku.h" />
+    <ClInclude Include="src\app\Help.h" />
     <ClInclude Include="src\app\LeNet.h" />
     <ClInclude Include="src\app\mcts.h" />
     <ClInclude Include="src\app\MctsAlgo.h" />
     <ClInclude Include="src\app\mnist.h" />
+    <ClInclude Include="src\app\QLearning.h" />
     <ClInclude Include="src\app\ThreeTac.h" />
     <ClInclude Include="src\app\TicTac.h" />
     <ClInclude Include="src\cpu\Activation.h" />

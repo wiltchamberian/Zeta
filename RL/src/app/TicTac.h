@@ -17,7 +17,7 @@ struct Action {
     char endPos = 0;
 };
 
-class TicTac: public mcts::State {
+class TicTac: public State {
 public:
     TicTac() {
         for (int i = 0; i < 9; ++i) {
@@ -100,12 +100,12 @@ public:
     bool legal(int i, int j) const;
     bool legalAction(int action) const;
     std::vector<int> legalActions() const override;
-    std::shared_ptr<mcts::State> next_state(int action) const;
+    std::shared_ptr<State> next_state(int action) const;
     TicTac NextState(int action) const;
-    TicTac* NextState(int action, mcts::NodePool<TicTac>& pool) const;
+    TicTac* NextState(int action, NodePool<TicTac>& pool) const;
     uint64_t Hash() const override;
     void UnHash(uint64_t hash) override;
-    std::vector<std::shared_ptr<mcts::State>> permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies);
+    std::vector<std::shared_ptr<State>> permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies);
 
     void mirrorBoard(std::array<char, 9>&);
     void rotateBoard(std::array<char, 9>&, int rot);
@@ -201,19 +201,19 @@ public:
 };
 
 
-class TicTacProxy : public mcts::Proxy {
+class TicTacProxy : public Proxy {
 public:
     virtual ~TicTacProxy();
     using StateType = TicTac;
     std::shared_ptr<CuNN> nn = nullptr;
 
-    virtual std::shared_ptr<mcts::State> createState() const override;
-    CuHead predict(const mcts::State* state);
-    CuHead predict_s(const mcts::State* state) override;
+    virtual std::shared_ptr<State> createState() const override;
+    CuHead predict(const State* state);
+    CuHead predict_s(const State* state) override;
     void setLearningRate(float rate);
     void createNetwork(float learningRate);
     void createNNnetwork(float learningRate, OptimizerType type);
-    void train(const std::vector<mcts::Entry>& entries);
+    void train(const std::vector<Entry>& entries);
     void train(const Tensor& states, const Tensor& actions, const Tensor& values);
     virtual Proxy* Clone() const override;
     virtual void PrintLoss() const override;
@@ -237,7 +237,7 @@ public:
     std::map<uint64_t, int> values;
     std::unordered_map<uint64_t, TicTac*> mapping;
 
-    mcts::NodePool<TicTac> pool;
+    NodePool<TicTac> pool;
 
     std::mutex mutex;
 };

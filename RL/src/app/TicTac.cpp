@@ -6,7 +6,7 @@
 #include <random>
 #include <queue>
 
-std::shared_ptr<mcts::State> TicTac::next_state(int action) const
+std::shared_ptr<State> TicTac::next_state(int action) const
 {
     std::shared_ptr<TicTac> s = std::make_shared<TicTac>();
     *s = *this;
@@ -94,7 +94,7 @@ TicTac TicTac::NextState(int action) const {
     return s;
 }
 
-TicTac* TicTac::NextState(int action, mcts::NodePool<TicTac>& pool) const {
+TicTac* TicTac::NextState(int action, NodePool<TicTac>& pool) const {
     TicTac* s = pool.Alloc();
     for (int i = 0; i < 9; ++i) {
         s->board[i] = board[i];
@@ -171,9 +171,9 @@ void TicTac::UnHash(uint64_t h)  {
     return;
 }
 
-std::vector<std::shared_ptr<mcts::State>> TicTac::permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies)
+std::vector<std::shared_ptr<State>> TicTac::permuteStates(const std::vector<double>& policy, std::vector<std::vector<double>>& policies)
 {
-    std::vector<std::shared_ptr<mcts::State>> res(8);
+    std::vector<std::shared_ptr<State>> res(8);
     policies.resize(8);
     // 生成4个旋转
     for (int rot = 0; rot < 4; ++rot) {
@@ -445,13 +445,13 @@ TicTacProxy::~TicTacProxy() {
 
 }
 
-std::shared_ptr<mcts::State> TicTacProxy::createState() const {
-    std::shared_ptr<mcts::State> st = std::make_shared<TicTac>();
+std::shared_ptr<State> TicTacProxy::createState() const {
+    std::shared_ptr<State> st = std::make_shared<TicTac>();
     st->Init();
     return st;
 }
 
-CuHead TicTacProxy::predict(const mcts::State* state) {
+CuHead TicTacProxy::predict(const State* state) {
     CuHead head;
     Tensor input = state->Encode();
 
@@ -482,7 +482,7 @@ CuHead TicTacProxy::predict(const mcts::State* state) {
 
 }
 
-CuHead TicTacProxy::predict_s(const mcts::State* state) {
+CuHead TicTacProxy::predict_s(const State* state) {
     std::lock_guard<std::mutex> lock(mutex);
     CuHead head = predict(state);
     return head;
@@ -599,7 +599,7 @@ void TicTacProxy::createNNnetwork(float learningRate,OptimizerType optType) {
     dnn->AllocDeviceMemory();
 }
 
-void TicTacProxy::train(const std::vector<mcts::Entry>& entries) {
+void TicTacProxy::train(const std::vector<Entry>& entries) {
     if (entries.empty()) {
         return;
     }
@@ -639,7 +639,7 @@ void TicTacProxy::train(const Tensor & states, const Tensor & actions, const Ten
     return;
 }
 
-mcts::Proxy* TicTacProxy::Clone() const {
+Proxy* TicTacProxy::Clone() const {
     TicTacProxy* proxy = new TicTacProxy();
     proxy->version = version;
     proxy->nn = std::unique_ptr<CuNN>(this->nn->Clone());

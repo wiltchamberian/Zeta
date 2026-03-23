@@ -14,6 +14,7 @@
 #include "LeNet.h"
 #include "Go.h"
 #include "vm_test.h"
+#include "QLearning.h"
 
 using namespace zeta;
 
@@ -65,6 +66,10 @@ int main()
     //test_cnn_tictac();
     //test_blaslt();
     //mnist_test();//please modify the path for testing!
+    
+
+    
+
 
     BinaryStream bs;
     bs.loadFromFile("tictacs.bin");
@@ -130,6 +135,19 @@ int main()
     //change here to test other proxy, may have runtime error, please report if you find it.
     using ProxyType = TicTacProxy; 
 
+    zeta::QLearning qlAi;
+    qlAi.setting.alpha = 0.9f;
+    qlAi.setting.max_play_length = GOMOKU_DIM;
+    qlAi.setting.episode_num = 50000;
+    qlAi.setting.gamma = -0.9;
+    qlAi.setting.epsilon_init = 1;
+    qlAi.setting.epsilon_final = 1;
+    qlAi.setting.decay_rate = 1;
+
+    qlAi.proxy = std::make_shared<ProxyType>();
+    qlAi.pool.resize(1000000);
+    int terminal_count = qlAi.train();
+    std::cout << "terminal_ratio:" << ((double)terminal_count) / (qlAi.setting.max_play_length * qlAi.setting.episode_num) << std::endl;
 
     auto proxy = std::make_shared<ProxyType>();
     proxy->createNNnetwork(0.01f, SGD);
@@ -164,11 +182,11 @@ int main()
         stream1.saveToFile("ai1.bin");
     }
 
-    mcts::Mcts ai1;
-    ai1.mctsProxy = std::make_shared<ProxyType>();
+    mcts::Mcts mctsSupAi;
+    mctsSupAi.mctsProxy = std::make_shared<ProxyType>();
     BinaryStream newStream1;
     newStream1.loadFromFile("ai1.bin");
-    ai1.mctsProxy->Load(newStream1);
+    mctsSupAi.mctsProxy->Load(newStream1);
     
 
     
@@ -190,25 +208,25 @@ int main()
     setting.startTemperature = 1000;
     setting.dirichletNoise = 10.0f / proxy->totalActionCount;
 
-    mcts::Mcts mcts;
-    mcts.setting = setting;
-    mcts.replayBuffer.setMaxSize(5000);
+    mcts::Mcts mctsAi;
+    mctsAi.setting = setting;
+    mctsAi.replayBuffer.setMaxSize(5000);
 
     
     //BinaryStream newStream;
     //newStream.loadFromFile("proxy_file.bin");
     //auto newProxy = std::make_shared<ProxyType>();
     //newProxy->Load(newStream);
-    //mcts.mctsProxy = newProxy;
+    //mctsAi.mctsProxy = newProxy;
 
-    auto newProxy = std::make_shared<ProxyType>();
-    newProxy->createNNnetwork(0.01f, SGD);
-    mcts.mctsProxy = newProxy;
-    mcts.trainProxy = newProxy->Clone();
-    mcts.train();
-    BinaryStream stream;
-    mcts.mctsProxy->Save(stream);
-    stream.saveToFile("proxy_file.bin");
+    //auto newProxy = std::make_shared<ProxyType>();
+    //newProxy->createNNnetwork(0.01f, SGD);
+    //mctsAi.mctsProxy = newProxy;
+    //mctsAi.trainProxy = newProxy->Clone();
+    //mctsAi.train();
+    //BinaryStream stream;
+    //mctsAi.mctsProxy->Save(stream);
+    //stream.saveToFile("proxy_file.bin");
    
     enum FIGHT_TYPE {
         HUMAN_VS_AI,
@@ -217,7 +235,7 @@ int main()
     FIGHT_TYPE fightType;
     int d[64];
     bool human = true;
-    std::shared_ptr<mcts::State> state = std::make_shared<ProxyType::StateType>();
+    std::shared_ptr<State> state = std::make_shared<ProxyType::StateType>();
     state->Init();
 
     std::cout << "human_vs_ai:0 or ai_vs_ai:1 ?\n";
@@ -296,19 +314,26 @@ int main()
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
             else if(fightType == AI_VS_AI){
-                state = ai1.play(state);
+                state = qlAi.play(state);
                 state->printState();
                 human = !human;
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                
+                std::cout << "press to step\n";
+                std::string tmp;
+                std::getline(std::cin, tmp);  // 等待回车
+                //std::this_thread::sleep_for(std::chrono::seconds(1));
             }
             
         }
         else {
-            state = mcts.play(state);
+            state = qlAi.play(state);
             state->printState();
             human = !human;
             if (fightType == AI_VS_AI) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                //std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::cout << "press to step\n";
+                std::string tmp;
+                std::getline(std::cin, tmp);  // 等待回车
             }
         }
 

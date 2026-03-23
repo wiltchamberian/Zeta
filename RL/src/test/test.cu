@@ -4,7 +4,8 @@
 #include "NeuralNetwork.h"
 #include "mat.cuh"
 #include "cu_tool.h"
-#include <cuda_runtime.h>
+#include "QLearning.h"
+#include "TicTac.h"
 
 void test_tensor_slice_permute() {
     using T = float;
@@ -260,5 +261,16 @@ void test_mat_mul() {
 
     zeta::ToTensor(c, addr3);
 
+}
+
+void test_q_learning() {
+
+    zeta::QLearning ql;
+    ql.setting.alpha = 0.9f;
+    ql.setting.max_play_length = 100;
+    ql.setting.episode_num = 100;
+    ql.setting.gamma = 0.9;
+    ql.proxy = std::make_shared<TicTacProxy>();
+    ql.train();
 }
 
