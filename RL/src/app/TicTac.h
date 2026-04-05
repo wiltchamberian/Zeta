@@ -208,10 +208,10 @@ public:
     std::shared_ptr<CuNN> nn = nullptr;
 
     virtual std::shared_ptr<State> createState() const override;
-    CuHead predict(const State* state);
-    CuHead predict_s(const State* state) override;
+    virtual CuHead predict(const State* state) override;
+    virtual CuHead predict_s(const State* state) override;
     void setLearningRate(float rate);
-    void createNetwork(float learningRate);
+    virtual void createNetwork(float learningRate) override;
     void createNNnetwork(float learningRate, OptimizerType type);
     void train(const std::vector<Entry>& entries);
     void train(const Tensor& states, const Tensor& actions, const Tensor& values);

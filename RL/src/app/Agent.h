@@ -103,8 +103,10 @@ namespace zeta {
 
         float prior = 0.0f;
         int visit_count = 0;
-        float q = 0.0f;
-        float W = 0.0f;
+        float q = 0.0f; //used as Q in q-learning
+
+
+        float W = 0.0f; //used as Q in mcts
         float reward = 0;
 
 
@@ -147,6 +149,8 @@ namespace zeta {
 
         std::vector<double> getPolicyDistribution(double, int totalActionCount);
         int subTreeDepth = 0;
+        float q = 0.0f;
+        float u = 0;
     };
 
     class Agent {

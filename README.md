@@ -137,3 +137,5 @@ void test_dnn_linear() {
 - Use Q learning to achieve perfect AI for Gomoku (3*3) (TicTacToe) and Sliding Tic-Tac-Toe in about 4 seconds.
 - No neural network used.
 
+## [v0.2.1] - Add C interface
+- Add a C interface and dll export, successfully used in another project. Added simple Hex logic.

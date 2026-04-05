@@ -221,6 +221,12 @@ namespace zeta {
             return (numel() == 0) || (data_ == nullptr);
         }
 
+        void setData(const float* lis, int n) {
+            assert(numel() == n);
+            assert(is_continuous());
+            std::copy(lis, lis + n, data_->begin());
+        }
+
         void setData(std::initializer_list<float> list) {
             assert(numel() == list.size());
             assert(is_continuous());

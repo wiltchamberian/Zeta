@@ -10,7 +10,7 @@ namespace zeta {
     class DnnConv : public Conv2d {
     public:
         DnnConv() {}
-        DnnConv(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 });
+        DnnConv(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 }, bool useBias = true);
         virtual ~DnnConv() override;
         void BindWorkspace(void* ptr) override;
         void forward() override;

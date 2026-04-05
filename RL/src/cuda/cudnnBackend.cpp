@@ -1173,10 +1173,10 @@ doTest(int algo, //0:conv 1:dgrad 2:wgrad
     T_ELEM* hostF = NULL; //filter on cpu
     T_ELEM* hostO = NULL; //output tensor on cpu
 
-    cudnnTensorDescriptor_t cudnnIdesc;
-    cudnnFilterDescriptor_t cudnnFdesc;
-    cudnnTensorDescriptor_t cudnnOdesc;
-    cudnnConvolutionDescriptor_t cudnnConvDesc;
+    cudnnTensorDescriptor_t cudnnIdesc = nullptr;
+    cudnnFilterDescriptor_t cudnnFdesc = nullptr;
+    cudnnTensorDescriptor_t cudnnOdesc = nullptr;
+    cudnnConvolutionDescriptor_t cudnnConvDesc = nullptr;
 
     int convDim = 2;
 

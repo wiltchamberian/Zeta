@@ -55,7 +55,8 @@ Linear::Linear(int input, int output)
 
 void Linear::RandomParameters() {
     //He/Kaiming
-    std::default_random_engine generator;
+    std::random_device rd;
+    std::default_random_engine generator(rd());
     int fan_in = weights.shape[0];   //input neural network
     float stddev = std::sqrt(2.0f / fan_in);
     std::normal_distribution<float> distribution(0.0f, stddev);
@@ -791,12 +792,13 @@ Conv2d::Conv2d() {
     layerType == LayerType::Conv;
 }
 
-Conv2d::Conv2d(int K, int C, int R, int S, Size2D padding, Size2D stride)
+Conv2d::Conv2d(int K, int C, int R, int S, Size2D padding, Size2D stride, bool use_bias)
     :padH(padding.h)
     ,padW(padding.w)
     ,strideH(stride.h)
     ,strideW(stride.w)
 {
+    useBias = use_bias;
     layerType == LayerType::Conv;
 
     weights = Tensor(K, C, R, S);
@@ -819,7 +821,8 @@ Conv2d::~Conv2d() {
 void Conv2d::RandomParameters() {
     //He/Kaiming initialize
     int fan_in = weights.shape[2] * weights.shape[3] * weights.shape[1];
-    std::default_random_engine generator;
+    std::random_device rd;
+    std::default_random_engine generator(rd());
     std::normal_distribution<float> distribution(0.0, sqrt(2.0 / fan_in));
     for (int i = 0; i < weights.shape[0]; ++i) {
         for (int j = 0; j < weights.shape[1]; ++j) {
@@ -1112,9 +1115,18 @@ void Conv2d::applyGradient() {
         int block_x = (CPQ + TILE_WIDTH - 1) / TILE_WIDTH;
         dim3 grid(block_x, block_y);
         dim3 block(TILE_WIDTH, TILE_WIDTH);
-        apply_gradient_kernel << <grid, block >> > (dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
+        if (useBias) {
+            apply_gradient_kernel << <grid, block >> > (dl.grad_w, dl.grad_b, dl.weights, dl.bias, K, CPQ, nn->learningRate);
+        }
+        else {
+            apply_weights_kernel << < grid, block >> > (dl.grad_w, dl.weights, K, CPQ, nn->learningRate);
+        }
+        
     }
     else if (nn->optimizerType == Adam) {
+        if (!useBias) {
+            assert(false);
+        }
         int total = in_dim * out_dim;
         dim3 block(TILE_WIDTH);
         dim3 grid((total + TILE_WIDTH - 1) / TILE_WIDTH);

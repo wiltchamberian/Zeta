@@ -533,6 +533,21 @@ __global__ void adam_gradient_kernel(
     theta[i] = theta[i] - alpha * m[i] / (1 - beta1_t) / (sqrtf(v[i] / (1 - beta2_t)) + epsilon);
 }
 
+__global__ void apply_weights_kernel(
+    const float* grad_w, // K * CPQ
+    float* w,
+    int K,
+    int CPQ,
+    float learning_rate
+) {
+    int i = blockDim.y * blockIdx.y + threadIdx.y; //K
+    int j = blockDim.x * blockIdx.x + threadIdx.x; //CPQ
+    if (i >= K || j >= CPQ) return;
+
+    w[i * CPQ + j] -= learning_rate * grad_w[i * CPQ + j];
+    return;
+}
+
 __global__ void apply_gradient_kernel(
     const float* grad_w, // K * CPQ
     const float* grad_b, // K

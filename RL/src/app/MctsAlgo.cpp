@@ -33,11 +33,12 @@ namespace mcts{
     }
 
     void Mcts::expand(Node* cur, Proxy* proxy) {
-        CuHead head = proxy->predict(cur->state.get());
         auto actions = cur->state->legalActions();
         if (actions.empty()) {
             assert(false);
         }
+
+        CuHead head = proxy->predict(cur->state.get());
 
         cur->expanded = true;
 

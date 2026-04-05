@@ -8,8 +8,8 @@
 #include "DnnTensor.h"
 
 namespace zeta {
-    DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride)
-        :Conv2d(K, C, R, S, padding, stride)
+    DnnConv::DnnConv(int K, int C, int R, int S, Size2D padding, Size2D stride, bool useBias)
+        :Conv2d(K, C, R, S, padding, stride, useBias)
     {
         init(K, C, R, S);
     }
@@ -76,12 +76,18 @@ namespace zeta {
             output->desc->cudnnDesc,
             devPtrO));
 
-        int C = output->shape.C;
-        int HW = output->shape.H * output->shape.W;
-        int NCHW = output->shape.NumElements();
-        dim3 block(TILE_WIDTH);
-        dim3 grid((NCHW + TILE_WIDTH - 1) / TILE_WIDTH);
-        tensor_add_bias_kernel << <grid, block >> > (devPtrO, dl.bias, HW, C, NCHW);
+        if (useBias) {
+            int C = output->shape.C;
+            int HW = output->shape.H * output->shape.W;
+            int NCHW = output->shape.NumElements();
+            dim3 block(TILE_WIDTH);
+            dim3 grid((NCHW + TILE_WIDTH - 1) / TILE_WIDTH);
+            tensor_add_bias_kernel << <grid, block >> > (devPtrO, dl.bias, HW, C, NCHW);
+        }
+        else {
+            ;
+        }
+        
         /*float alpha1 = 1.0f;
         float beta1 = 1.0f;
         auto status = cudnnAddTensor(dnn->handle_, &alpha1, cudnnBdesc, dl.bias, &beta1, cudnnOdesc, devPtrO);
@@ -115,7 +121,10 @@ namespace zeta {
         add = false;
         dgrad();
         wgrad();
-        bgrad();
+        if (useBias) {
+            bgrad();
+        }
+        
         if (nn->c != 0) {
             regular_grad();
         }

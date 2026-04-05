@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RL", "RL.vcxproj", "{52CB5868-838E-F8D8-97C3-0073D5E17A6A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zetalib", "..\zetalib\zetalib.vcxproj", "{D46FDFF2-8B76-4F6D-803C-2F02B623DEF0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{52CB5868-838E-F8D8-97C3-0073D5E17A6A}.Debug|x64.Build.0 = Debug|x64
 		{52CB5868-838E-F8D8-97C3-0073D5E17A6A}.Release|x64.ActiveCfg = Release|x64
 		{52CB5868-838E-F8D8-97C3-0073D5E17A6A}.Release|x64.Build.0 = Release|x64
+		{D46FDFF2-8B76-4F6D-803C-2F02B623DEF0}.Debug|x64.ActiveCfg = Debug|x64
+		{D46FDFF2-8B76-4F6D-803C-2F02B623DEF0}.Debug|x64.Build.0 = Debug|x64
+		{D46FDFF2-8B76-4F6D-803C-2F02B623DEF0}.Release|x64.ActiveCfg = Release|x64
+		{D46FDFF2-8B76-4F6D-803C-2F02B623DEF0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -3,15 +3,12 @@
 #include "Layer.h"
 #include "CuTensor.h"
 #include "binary.h"
+#include "Define.h"
 #include <fstream>
 
 
 namespace zeta {
-    //used for padding and stride
-    struct Size2D {
-        int h;
-        int w;
-    };
+    
 
     struct DeviceLayer {
         float* weights = nullptr;
@@ -39,26 +36,7 @@ namespace zeta {
 
     class CuNN;
 
-    //Must not change order, new items add to tail
-    //otherwise can't not read old files
-    enum class LayerType {
-        Basic,
-        Fully,
-        Conv,
-        Activation,
-        Act_Relu,
-        Act_Tanh,
-        Act_Sigmoid,
-        Act_ClippedRelu,
-        Act_Elu,
-        Act_Identity,
-        Act_SWISH,
-        Mse,
-        Softmax,
-        Add,
-        Output,
-        MaxPooling
-    };
+    
 
 
 
@@ -340,7 +318,7 @@ namespace zeta {
     public:
         using CuLayer::CuLayer;
         Conv2d();
-        Conv2d(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 });
+        Conv2d(int K, int C, int R, int S, Size2D padding = { 0,0 }, Size2D stride = { 1,1 }, bool useBias = true);
         virtual ~Conv2d();
         void RandomParameters();
         void InferOutputShape(TensorShape shape) override;
@@ -395,7 +373,7 @@ namespace zeta {
         DeviceLayer dl;
 
         float alpha = 1.0;
-
+        bool useBias = true;
     protected:
         int padH = 0;
         int padW = 0;

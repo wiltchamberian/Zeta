@@ -3,7 +3,7 @@
 #include "Gomoku.h"
 #include "DnnHead.h"
 
-static uint64_t zobrist[GOMOKU_DIM][3];
+static uint64_t zobrist[GOMOKU_DIM][2];
 static bool zobrist_initialized = false;
 void InitZobrist() {
     if (zobrist_initialized) return;

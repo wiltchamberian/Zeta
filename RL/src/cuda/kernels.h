@@ -178,6 +178,14 @@ namespace zeta {
         int total
     );
 
+    __global__ void apply_weights_kernel(
+        const float* grad_w, // K * CPQ
+        float* w,
+        int K,
+        int CPQ,
+        float learning_rate
+    );
+
     __global__ void apply_gradient_kernel(
         const float* grad_w, // dim_y x dim_x
         const float* grad_b, // dim_y

@@ -44,6 +44,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -95,8 +98,8 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="src\cuda\cudnn\DnnConv.cpp" />
     <CudaCompile Include="src\cuda\cudnn\DNN.cpp" />
+    <CudaCompile Include="src\cuda\cudnn\DnnConv.cu" />
     <CudaCompile Include="src\cuda\cudnn\DnnLinear.cu" />
     <CudaCompile Include="src\cuda\cuLayer.cu" />
     <CudaCompile Include="src\cuda\CuNN.cu" />
@@ -111,9 +114,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\Agent.cpp" />
+    <ClCompile Include="src\app\DQN.cpp" />
     <ClCompile Include="src\app\Go.cpp" />
     <ClCompile Include="src\app\Gomoku.cpp" />
     <ClCompile Include="src\app\Help.cpp" />
+    <ClCompile Include="src\app\Hex.cpp" />
     <ClCompile Include="src\app\LeNet.cpp" />
     <ClCompile Include="src\app\mcts.cpp" />
     <ClCompile Include="src\app\MctsAlgo.cpp" />
@@ -124,7 +129,6 @@
     <ClCompile Include="src\cpu\Activation.cpp" />
     <ClCompile Include="src\cpu\binary.cpp" />
     <ClCompile Include="src\cpu\Layer.cpp" />
-    <ClCompile Include="src\cpu\main.cpp" />
     <ClCompile Include="src\cpu\NeuralNetwork.cpp" />
     <ClCompile Include="src\cpu\TensorStream.cpp" />
     <ClCompile Include="src\cpu\Vm.cpp" />
@@ -136,13 +140,16 @@
     <ClCompile Include="src\cuda\cudnn\DnnTensor.cpp" />
     <ClCompile Include="src\cuda\CuTensor.cpp" />
     <ClCompile Include="src\test\cnn_test.cpp" />
+    <ClCompile Include="src\test\main.cpp" />
     <ClCompile Include="src\test\vm_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\app\Agent.h" />
+    <ClInclude Include="src\app\DQN.h" />
     <ClInclude Include="src\app\Go.h" />
     <ClInclude Include="src\app\Gomoku.h" />
     <ClInclude Include="src\app\Help.h" />
+    <ClInclude Include="src\app\Hex.h" />
     <ClInclude Include="src\app\LeNet.h" />
     <ClInclude Include="src\app\mcts.h" />
     <ClInclude Include="src\app\MctsAlgo.h" />
@@ -152,6 +159,7 @@
     <ClInclude Include="src\app\TicTac.h" />
     <ClInclude Include="src\cpu\Activation.h" />
     <ClInclude Include="src\cpu\binary.h" />
+    <ClInclude Include="src\cpu\Define.h" />
     <ClInclude Include="src\cpu\Layer.h" />
     <ClInclude Include="src\cpu\matrix.h" />
     <ClInclude Include="src\cpu\NeuralNetwork.h" />
