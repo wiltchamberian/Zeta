@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{d46fdff2-8b76-4f6d-803c-2f02b623def0}</ProjectGuid>
+    <RootNamespace>zetalib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <CudaToolkitCustomDir>G:\NVIDIA\v12.4</CudaToolkitCustomDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.props" />
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <VcpkgManifestInstall>false</VcpkgManifestInstall>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;ZETALIB_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;ZETALIB_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ZETA_LIB_EXPORTS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>G:\AI\AI_BP\RL\src\cpu;G:\AI\AI_BP\RL\src\cuda;G:\AI\AI_BP\RL\src\cuda\cudnn;G:\NVIDIA\v12.4\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdclatest</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>G:\NVIDIA\v12.4\lib\x64;G:\NVIDIA\CUDNN\v9.10.2\lib\12.9\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cudnn.lib;cudart_static.lib;cublasLt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <CudaRuntime>Shared</CudaRuntime>
+      <CodeGeneration>compute_61,sm_61</CodeGeneration>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ZETA_LIB_EXPORTS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>G:\AI\AI_BP\RL\src\cpu;G:\AI\AI_BP\RL\src\cuda;G:\AI\AI_BP\RL\src\cuda\cudnn;G:\NVIDIA\v12.4\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdclatest</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>G:\NVIDIA\v12.4\lib\x64;G:\NVIDIA\CUDNN\v9.10.2\lib\12.9\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cudnn.lib;cudart_static.lib;cublasLt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <CudaRuntime>Shared</CudaRuntime>
+      <CodeGeneration>compute_61,sm_61</CodeGeneration>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\RL\src\cpu\Activation.h" />
+    <ClInclude Include="..\RL\src\cpu\binary.h" />
+    <ClInclude Include="..\RL\src\cpu\Define.h" />
+    <ClInclude Include="..\RL\src\cpu\fp16_emu.h" />
+    <ClInclude Include="..\RL\src\cpu\Layer.h" />
+    <ClInclude Include="..\RL\src\cpu\matrix.h" />
+    <ClInclude Include="..\RL\src\cpu\NeuralNetwork.h" />
+    <ClInclude Include="..\RL\src\cpu\tensor.h" />
+    <ClInclude Include="..\RL\src\cpu\TensorStream.h" />
+    <ClInclude Include="..\RL\src\cpu\Vm.h" />
+    <ClInclude Include="..\RL\src\cuda\activationLayer.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DNN.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnAct.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnConv.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnHead.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnHelp.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnLinear.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnPooling.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnSoftmax.h" />
+    <ClInclude Include="..\RL\src\cuda\cudnn\DnnTensor.h" />
+    <ClInclude Include="..\RL\src\cuda\cuLayer.h" />
+    <ClInclude Include="..\RL\src\cuda\CuNN.h" />
+    <ClInclude Include="..\RL\src\cuda\CuTensor.h" />
+    <ClInclude Include="..\RL\src\cuda\cu_tool.h" />
+    <ClInclude Include="..\RL\src\cuda\error_util.h" />
+    <ClInclude Include="..\RL\src\cuda\fp16_dev.h" />
+    <ClInclude Include="..\RL\src\cuda\kernels.h" />
+    <ClInclude Include="..\RL\src\cuda\linearReluLayer.h" />
+    <ClInclude Include="..\RL\src\cuda\maxpool.h" />
+    <ClInclude Include="..\RL\src\cuda\reluLayer.h" />
+    <ClInclude Include="..\RL\src\cuda\tanhLayer.h" />
+    <ClInclude Include="..\RL\src\cuda\tensor_operator.h" />
+    <ClInclude Include="framework.h" />
+    <ClInclude Include="zetalib.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\RL\src\cpu\Activation.cpp" />
+    <ClCompile Include="..\RL\src\cpu\binary.cpp" />
+    <ClCompile Include="..\RL\src\cpu\fp16_emu.cpp" />
+    <ClCompile Include="..\RL\src\cpu\Layer.cpp" />
+    <ClCompile Include="..\RL\src\cpu\NeuralNetwork.cpp" />
+    <ClCompile Include="..\RL\src\cpu\TensorStream.cpp" />
+    <ClCompile Include="..\RL\src\cpu\Vm.cpp" />
+    <ClCompile Include="..\RL\src\cuda\activationLayer.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnnBackend.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DNN.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DnnAct.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DnnHelp.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DnnPooling.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DnnSoftmax.cpp" />
+    <ClCompile Include="..\RL\src\cuda\cudnn\DnnTensor.cpp" />
+    <ClCompile Include="..\RL\src\cuda\CuTensor.cpp" />
+    <ClCompile Include="..\RL\src\cuda\tensor_operator.cpp" />
+    <ClCompile Include="zetalib.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\RL\src\cuda\cudnn\DnnLinear.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\RL\src\cuda\cuLayer.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\RL\src\cuda\CuNN.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\RL\src\cuda\cu_tool.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <None Include="..\RL\src\cuda\fp16_dev.cu" />
+    <CudaCompile Include="..\RL\src\cuda\kernels.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <None Include="..\RL\src\cuda\mat.cu" />
+    <None Include="..\RL\src\cuda\mat.cuh" />
+    <CudaCompile Include="..\RL\src\cuda\maxpool.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\RL\src\cuda\reluLayer.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="..\RL\src\cuda\tanhLayer.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\RL\src\cuda\cudnn\DnnConv.cu" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.4.targets" />
+  </ImportGroup>
+</Project>
